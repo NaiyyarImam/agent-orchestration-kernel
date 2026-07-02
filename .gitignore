@@ -1,0 +1,17 @@
+# OpenWork runtime
+bash_events/
+conversations/
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Logs
+*.log
