@@ -7,7 +7,7 @@ conversations/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 
 # Virtual environments
 .venv/
@@ -15,3 +15,18 @@ venv/
 
 # Logs
 *.log
+
+# Pytest
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Local storage
+storage/*.db
+
+# IDE
+.vscode/
