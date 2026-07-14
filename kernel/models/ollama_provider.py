@@ -71,16 +71,23 @@ class OllamaProvider(ModelProvider):
         return data.get("embedding", [])
 
     async def health_check(self) -> bool:
-        """
-        Check if the Ollama server is up and reachable.
-        """
-        url = f"{self._base_url}/models"
+        """Check whether the Ollama server is reachable."""
+
+        url = self._native_base_url() + "/api/tags"
+
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                return True
-        except Exception:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+
+                data = response.json()
+
+                return (
+                    isinstance(data, dict)
+                    and isinstance(data.get("models"), list)
+                )
+
+        except (httpx.HTTPError, httpx.RequestError):
             return False
 
     async def ping(self) -> bool:
