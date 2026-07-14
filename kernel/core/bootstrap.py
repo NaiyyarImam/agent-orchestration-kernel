@@ -32,10 +32,10 @@ class Bootstrap:
     def build(self) -> ExecutiveEngine:
         config = ConfigManager()
 
-        storage = StorageManager(self.root / "storage")
+        storage = StorageManager(config.storage.root)
 
         memory_store = SQLiteMemoryStore(
-            storage.root / "jarvis_memory.db"
+            config.storage.database
         )
 
         memory = MemoryManager(memory_store)
@@ -43,7 +43,10 @@ class Bootstrap:
         models = ModelManager()
 
         # Temporary provider used only for model discovery.
-        discovery_provider = OllamaProvider(model="qwen3:14b")
+        discovery_provider = OllamaProvider(
+            model=config.ollama.default_model,
+            base_url=config.ollama.base_url,
+        )
 
         try:
             discovered_models = discovery_provider.available_models_sync()
@@ -59,9 +62,14 @@ class Bootstrap:
             )
 
         for model_name in discovered_models:
-            models.register(OllamaProvider(model=model_name))
+            models.register(
+                OllamaProvider(
+                    model=model_name,
+                    base_url=config.ollama.base_url,
+                )
+            )
 
-        models.select_default("qwen3:14b")
+        models.select_default(config.ollama.default_model)
 
         tools = ToolRegistry()
 

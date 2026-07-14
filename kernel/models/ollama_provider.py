@@ -6,10 +6,11 @@ import httpx
 from kernel.interfaces.model_provider import ModelProvider
 
 DEFAULT_BASE_URL = "http://127.0.0.1:11434/v1"
+DEFAULT_TIMEOUT = 120.0
 
 
 class OllamaProvider(ModelProvider):
-    def __init__(self, model: str, *, base_url: str = DEFAULT_BASE_URL, timeout: float = 120.0):
+    def __init__(self, model: str, *, base_url: str = DEFAULT_BASE_URL, timeout: float = DEFAULT_TIMEOUT):
         self._model = model
         self._base_url = base_url
         self._timeout = timeout
@@ -85,9 +86,13 @@ class OllamaProvider(ModelProvider):
     async def ping(self) -> bool:
         return await self.health_check()
 
+    def _native_base_url(self) -> str:
+        """Return the Ollama native API base URL."""
+        return self._base_url.removesuffix("/v1")
+
     async def available_models(self) -> list[str]:
         """Discover installed Ollama models using the native Ollama API."""
-        url = self._base_url.replace("/v1", "") + "/api/tags"
+        url = self._native_base_url() + "/api/tags"
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.get(url)
@@ -105,7 +110,7 @@ class OllamaProvider(ModelProvider):
 
         This helper is intended for use during synchronous bootstrap.
         """
-        url = self._base_url.replace("/v1", "") + "/api/tags"
+        url = self._native_base_url() + "/api/tags"
 
         with httpx.Client(timeout=self._timeout) as client:
             response = client.get(url)
@@ -119,8 +124,4 @@ class OllamaProvider(ModelProvider):
         ]
 
     async def model_info(self) -> dict:
-        return {
-            "name": self._model,
-            "base_url": self._base_url,
-            "timeout": self._timeout,
-        }
+        return self.metadata

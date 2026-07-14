@@ -13,6 +13,7 @@ from pathlib import Path
 import os
 
 
+
 @dataclass(slots=True, frozen=True)
 class KernelConfig:
     """Immutable Kernel configuration."""
@@ -23,6 +24,26 @@ class KernelConfig:
     ollama_base_url: str
     default_model: str
     log_level: str
+    debug: bool
+
+
+# --- Extended grouped configuration dataclasses ---
+
+@dataclass(slots=True, frozen=True)
+class OllamaConfig:
+    base_url: str
+    default_model: str
+
+
+@dataclass(slots=True, frozen=True)
+class StorageConfig:
+    root: Path
+    database: Path
+
+
+@dataclass(slots=True, frozen=True)
+class LoggingConfig:
+    level: str
     debug: bool
 
 
@@ -52,10 +73,31 @@ class ConfigManager:
             debug=os.getenv("JARVIS_DEBUG", "false").lower() == "true",
         )
 
+        # Grouped configuration objects
+        self.ollama = OllamaConfig(
+            base_url=self._config.ollama_base_url,
+            default_model=self._config.default_model,
+        )
+
+        self.storage = StorageConfig(
+            root=self._config.storage_path,
+            database=self._config.storage_path / "jarvis_memory.db",
+        )
+
+        self.logging = LoggingConfig(
+            level=self._config.log_level,
+            debug=self._config.debug,
+        )
+
     @property
     def config(self) -> KernelConfig:
         """Return the immutable configuration object."""
         return self._config
+
+    @property
+    def project_root(self) -> Path:
+        """Return the Kernel project root."""
+        return self._config.project_root
 
     def get(self, key: str):
         """Retrieve a configuration value by attribute name."""
