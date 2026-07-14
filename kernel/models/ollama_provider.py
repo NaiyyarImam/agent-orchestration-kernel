@@ -86,15 +86,37 @@ class OllamaProvider(ModelProvider):
         return await self.health_check()
 
     async def available_models(self) -> list[str]:
+        """Discover installed Ollama models using the native Ollama API."""
+        url = self._base_url.replace("/v1", "") + "/api/tags"
+
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+        return [
+            model["name"]
+            for model in data.get("models", [])
+            if "name" in model
+        ]
+
+    def available_models_sync(self) -> list[str]:
+        """Synchronously discover installed Ollama models.
+
+        This helper is intended for use during synchronous bootstrap.
         """
-        Return a list of available model ids from the Ollama server.
-        """
-        url = f"{self._base_url}/models"
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.json()
-            return [m.get("id") for m in data.get("models", []) if "id" in m]
+        url = self._base_url.replace("/v1", "") + "/api/tags"
+
+        with httpx.Client(timeout=self._timeout) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+        return [
+            model["name"]
+            for model in data.get("models", [])
+            if "name" in model
+        ]
 
     async def model_info(self) -> dict:
         return {

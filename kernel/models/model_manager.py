@@ -70,6 +70,18 @@ class ModelManager:
 
         return sorted(self._providers.keys())
 
+    def has_provider(self, provider_name: str) -> bool:
+        """Return True if a provider is registered."""
+        return provider_name in self._providers
+
+    def provider_count(self) -> int:
+        """Return the number of registered providers."""
+        return len(self._providers)
+
+    def default_provider_name(self) -> str | None:
+        """Return the default provider name."""
+        return self._default_provider
+
     def set_default(self, provider_name: str) -> None:
         """Set the default provider."""
 
@@ -105,6 +117,25 @@ class ModelManager:
             max_tokens=max_tokens,
             **kwargs,
         )
+
+    def select_default(
+        self,
+        preferred: str = "qwen3:14b",
+    ) -> str:
+        """Select the preferred default provider if available.
+
+        Falls back to the first registered provider when the preferred
+        model is not present.
+        """
+        if not self._providers:
+            raise RuntimeError("No model providers are registered.")
+
+        if preferred in self._providers:
+            self._default_provider = preferred
+        elif self._default_provider not in self._providers:
+            self._default_provider = next(iter(self._providers))
+
+        return self._default_provider
 
     async def health_check(self) -> dict[str, bool]:
         """Run health checks for all providers."""

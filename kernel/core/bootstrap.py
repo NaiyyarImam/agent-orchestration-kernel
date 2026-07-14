@@ -40,10 +40,28 @@ class Bootstrap:
 
         memory = MemoryManager(memory_store)
 
-        model_provider = OllamaProvider(model="qwen3:14b")
-
         models = ModelManager()
-        models.register(model_provider)
+
+        # Temporary provider used only for model discovery.
+        discovery_provider = OllamaProvider(model="qwen3:14b")
+
+        try:
+            discovered_models = discovery_provider.available_models_sync()
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to discover installed Ollama models. "
+                "Ensure the Ollama server is running."
+            ) from exc
+
+        if not discovered_models:
+            raise RuntimeError(
+                "No Ollama models were found. Install at least one model with 'ollama pull'."
+            )
+
+        for model_name in discovered_models:
+            models.register(OllamaProvider(model=model_name))
+
+        models.select_default("qwen3:14b")
 
         tools = ToolRegistry()
 
