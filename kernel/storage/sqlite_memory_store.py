@@ -73,6 +73,22 @@ class SQLiteMemoryStore(MemoryStore):
 
         self._connection.commit()
 
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        *,
+        memory_type: str = "general",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Compatibility alias for put()."""
+        await self.put(
+            key,
+            value,
+            memory_type=memory_type,
+            metadata=metadata,
+        )
+
     async def get(self, key: str) -> Any:
         cursor = self._connection.cursor()
 
