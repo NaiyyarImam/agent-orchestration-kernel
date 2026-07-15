@@ -7,6 +7,7 @@ import pytest
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.adapters.coding_adapter import CodingAdapter
+from kernel.adapters.browser_adapter import BrowserAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.interfaces.capability_adapter import CapabilityResult
 from unittest.mock import AsyncMock
@@ -31,6 +32,10 @@ async def executive_engine() -> ExecutiveEngine:
     coding = CodingAdapter()
     await coding.initialize()
     adapters.register(coding)
+
+    browser = BrowserAdapter()
+    await browser.initialize()
+    adapters.register(browser)
 
     events = AsyncMock()
 
@@ -82,6 +87,22 @@ async def test_execute_coding_capability(executive_engine: ExecutiveEngine) -> N
         "prompt": "print('Hello, JARVIS')"
     }
     assert "Generated code" in result.data["message"]
+
+
+# New test for browser capability
+@pytest.mark.asyncio
+async def test_execute_browser_capability(executive_engine: ExecutiveEngine) -> None:
+    result = await executive_engine.execute_capability(
+        "web_search",
+        {"query": "JARVIS"},
+    )
+
+    assert isinstance(result, CapabilityResult)
+    assert result.success is True
+    assert result.metadata["adapter"] == "browser"
+    assert result.data["intent"] == "web_search"
+    assert result.data["payload"] == {"query": "JARVIS"}
+    assert result.data["message"] == "Web search placeholder."
 
 
 @pytest.mark.asyncio

@@ -10,6 +10,7 @@ from pathlib import Path
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.adapters.coding_adapter import CodingAdapter
+from kernel.adapters.browser_adapter import BrowserAdapter
 from kernel.config.config_manager import ConfigManager
 from kernel.events.in_memory_event_bus import InMemoryEventBus
 from kernel.executive.executive_engine import ExecutiveEngine
@@ -103,6 +104,12 @@ class Bootstrap:
         logger.info(
             "Registered capability adapter: %s",
             coding_adapter.name,
+        )
+        browser_adapter = BrowserAdapter()
+        adapters.register(browser_adapter)
+        logger.info(
+            "Registered capability adapter: %s",
+            browser_adapter.name,
         )
         logger.info(
             "Registered capability adapters will be initialized during async kernel startup"
