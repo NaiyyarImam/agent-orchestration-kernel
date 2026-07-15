@@ -10,6 +10,7 @@ from kernel.adapters.coding_adapter import CodingAdapter
 from kernel.adapters.browser_adapter import BrowserAdapter
 from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
+from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.interfaces.capability_adapter import CapabilityResult
 from unittest.mock import AsyncMock
@@ -47,6 +48,10 @@ async def executive_engine() -> ExecutiveEngine:
     await voice.initialize()
     adapters.register(voice)
 
+    memory_adapter = MemoryAdapter()
+    await memory_adapter.initialize()
+    adapters.register(memory_adapter)
+
     events = AsyncMock()
 
     store = SQLiteMemoryStore(":memory:")
@@ -83,6 +88,24 @@ async def test_execute_voice_capability(
     assert result.data["intent"] == "speech_to_text"
     assert result.data["payload"] == {"audio": "sample.wav"}
     assert result.data["message"] == "Speech-to-text placeholder."
+
+
+# Test for memory capability
+@pytest.mark.asyncio
+async def test_execute_memory_capability(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    result = await executive_engine.execute_capability(
+        "remember",
+        {"text": "Hello JARVIS"},
+    )
+
+    assert isinstance(result, CapabilityResult)
+    assert result.success is True
+    assert result.metadata["adapter"] == "memory"
+    assert result.data["intent"] == "remember"
+    assert result.data["payload"] == {"text": "Hello JARVIS"}
+    assert result.data["message"] == "Remember placeholder."
 
 
 @pytest.mark.asyncio
