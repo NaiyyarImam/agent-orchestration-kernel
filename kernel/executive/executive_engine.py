@@ -6,6 +6,7 @@ capability adapters without depending on any external framework.
 """
 
 from __future__ import annotations
+import uuid
 
 from typing import Any
 
@@ -66,6 +67,7 @@ class ExecutiveEngine:
             )
 
         task = CapabilityTask(
+            task_id=str(uuid.uuid4()),
             intent=intent,
             payload=payload,
             context=context or {},
