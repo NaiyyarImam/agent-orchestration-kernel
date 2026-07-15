@@ -8,6 +8,7 @@ from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.adapters.coding_adapter import CodingAdapter
 from kernel.adapters.browser_adapter import BrowserAdapter
+from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.interfaces.capability_adapter import CapabilityResult
 from unittest.mock import AsyncMock
@@ -36,6 +37,10 @@ async def executive_engine() -> ExecutiveEngine:
     browser = BrowserAdapter()
     await browser.initialize()
     adapters.register(browser)
+
+    workspace = WorkspaceAdapter()
+    await workspace.initialize()
+    adapters.register(workspace)
 
     events = AsyncMock()
 
@@ -103,6 +108,24 @@ async def test_execute_browser_capability(executive_engine: ExecutiveEngine) -> 
     assert result.data["intent"] == "web_search"
     assert result.data["payload"] == {"query": "JARVIS"}
     assert result.data["message"] == "Web search placeholder."
+
+
+# New test for workspace capability
+@pytest.mark.asyncio
+async def test_execute_workspace_capability(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    result = await executive_engine.execute_capability(
+        "read_file",
+        {"path": "README.md"},
+    )
+
+    assert isinstance(result, CapabilityResult)
+    assert result.success is True
+    assert result.metadata["adapter"] == "workspace"
+    assert result.data["intent"] == "read_file"
+    assert result.data["payload"] == {"path": "README.md"}
+    assert result.data["message"] == "Read file placeholder."
 
 
 @pytest.mark.asyncio
