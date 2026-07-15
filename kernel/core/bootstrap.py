@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
+from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.config.config_manager import ConfigManager
 from kernel.events.in_memory_event_bus import InMemoryEventBus
 from kernel.executive.executive_engine import ExecutiveEngine
@@ -89,6 +90,16 @@ class Bootstrap:
         tools = ToolRegistry()
 
         adapters = CapabilityAdapterManager()
+
+        research_adapter = ResearchAdapter()
+        adapters.register(research_adapter)
+        logger.info(
+            "Registered capability adapter: %s",
+            research_adapter.name,
+        )
+        logger.info(
+            "Research adapter will be initialized during async kernel startup"
+        )
 
         workflows = WorkflowManager()
 

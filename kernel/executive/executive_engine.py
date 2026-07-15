@@ -1,5 +1,3 @@
-
-
 """Executive Intelligence Engine for the JARVIS Kernel.
 
 The ExecutiveEngine is the central orchestrator of the Kernel. It coordinates
@@ -14,6 +12,7 @@ from typing import Any
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.config.config_manager import ConfigManager
 from kernel.events.in_memory_event_bus import InMemoryEventBus
+from kernel.interfaces.capability_adapter import CapabilityTask, CapabilityResult
 from kernel.memory.memory_manager import MemoryManager
 from kernel.models.model_manager import ModelManager
 from kernel.security.security_manager import SecurityManager
@@ -47,35 +46,45 @@ class ExecutiveEngine:
 
     async def execute_capability(
         self,
-        capability: str,
-        task: str,
-        **kwargs: Any,
-    ) -> Any:
-        """Authorize and execute a capability through the adapter manager."""
+        intent: str,
+        payload: dict[str, Any],
+        *,
+        context: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> CapabilityResult:
+        """Authorize and execute a capability task through the adapter manager."""
+
         allowed = await self._security.authorize(
             subject="executive_engine",
-            action=task,
-            resource=capability,
+            action=intent,
+            resource="capability",
         )
+
         if not allowed:
             raise PermissionError(
-                f"Execution denied for capability '{capability}'."
+                f"Execution denied for intent '{intent}'."
             )
+
+        task = CapabilityTask(
+            intent=intent,
+            payload=payload,
+            context=context or {},
+            metadata=metadata or {},
+        )
 
         await self._events.publish(
             "capability.execution.started",
-            {"capability": capability, "task": task},
+            {"intent": intent},
         )
 
-        result = await self._adapters.execute(
-            capability,
-            task,
-            **kwargs,
-        )
+        result = await self._adapters.execute(task)
 
         await self._events.publish(
             "capability.execution.completed",
-            {"capability": capability, "task": task},
+            {
+                "intent": intent,
+                "success": result.success,
+            },
         )
 
         return result

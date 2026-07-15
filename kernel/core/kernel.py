@@ -27,6 +27,9 @@ class Kernel:
 
         self._logger.info("Starting JARVIS Kernel")
         self._engine = self._bootstrap.build()
+        # Initialize all registered capability adapters.
+        for adapter in self._engine.adapters._adapters.values():
+            await adapter.initialize()
         self._started = True
         self._logger.info("JARVIS Kernel started successfully")
 

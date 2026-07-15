@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from kernel.interfaces.capability_adapter import CapabilityAdapter
+from kernel.interfaces.capability_adapter import CapabilityTask
 
 
 class CapabilityAdapterManager:
@@ -60,20 +61,29 @@ class CapabilityAdapterManager:
 
         return len(self._adapters)
 
+    def find_adapter_for_intent(
+        self,
+        intent: str,
+    ) -> CapabilityAdapter:
+        """Return the first adapter that supports the given intent."""
+
+        for adapter in self._adapters.values():
+            if adapter.supports(intent):
+                return adapter
+
+        raise KeyError(
+            f"No adapter supports intent: {intent}"
+        )
+
     async def execute(
         self,
-        adapter_name: str,
-        task: str,
-        **kwargs: Any,
+        task: CapabilityTask,
     ) -> Any:
-        """Execute a task using the specified adapter."""
+        """Route a capability task to the appropriate adapter."""
 
-        adapter = self.get(adapter_name)
+        adapter = self.find_adapter_for_intent(task.intent)
 
-        return await adapter.execute(
-            task=task,
-            **kwargs,
-        )
+        return await adapter.execute(task)
 
     async def health_check(self) -> bool:
         """Return overall adapter manager health."""

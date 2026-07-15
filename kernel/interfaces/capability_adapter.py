@@ -24,6 +24,8 @@ class CapabilityTask:
     task_id: str
     intent: str
     payload: dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -36,6 +38,7 @@ class CapabilityResult:
     data: Any = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    execution_time_ms: float = 0.0
 
 
 class CapabilityAdapter(ABC):
@@ -66,11 +69,11 @@ class CapabilityAdapter(ABC):
         """Human-readable description."""
 
     @abstractmethod
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         """Prepare adapter resources."""
 
     @abstractmethod
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """Return adapter health."""
 
     @abstractmethod
@@ -80,11 +83,11 @@ class CapabilityAdapter(ABC):
         """
 
     @abstractmethod
-    def execute(self, task: CapabilityTask) -> CapabilityResult:
+    async def execute(self, task: CapabilityTask) -> CapabilityResult:
         """
         Execute a typed task.
         """
 
     @abstractmethod
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Release resources."""
