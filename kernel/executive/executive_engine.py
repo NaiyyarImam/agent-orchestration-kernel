@@ -16,6 +16,7 @@ from kernel.events.in_memory_event_bus import InMemoryEventBus
 from kernel.interfaces.capability_adapter import CapabilityTask, CapabilityResult
 from kernel.memory.memory_manager import MemoryManager
 from kernel.models.model_manager import ModelManager
+from kernel.planning.task_plan import TaskPlan
 from kernel.security.security_manager import SecurityManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
@@ -90,6 +91,23 @@ class ExecutiveEngine:
         )
 
         return result
+
+    async def execute_plan(
+        self,
+        plan: TaskPlan,
+    ) -> list[CapabilityResult]:
+        """Execute each step of a task plan sequentially."""
+
+        results: list[CapabilityResult] = []
+
+        for step in plan.steps:
+            result = await self.execute_capability(
+                step.intent,
+                step.payload,
+            )
+            results.append(result)
+
+        return results
 
     async def execute_workflow(
         self,

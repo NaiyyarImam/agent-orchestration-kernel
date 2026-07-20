@@ -13,6 +13,8 @@ from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.interfaces.capability_adapter import CapabilityResult
+from kernel.planning.execution_step import ExecutionStep
+from kernel.planning.task_plan import TaskPlan
 from unittest.mock import AsyncMock
 from kernel.memory.memory_manager import MemoryManager
 from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
@@ -170,6 +172,44 @@ async def test_execute_workspace_capability(
     assert result.data["intent"] == "read_file"
     assert result.data["payload"] == {"path": "README.md"}
     assert result.data["message"] == "Read file placeholder."
+
+
+
+
+# Test for executing a plan with steps
+import pytest
+
+@pytest.mark.asyncio
+async def test_execute_plan(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    plan = TaskPlan(
+        plan_id="plan-1",
+        goal="Research JARVIS",
+    )
+
+    plan.add_step(
+        ExecutionStep(
+            step_id="step-1",
+            adapter="research",
+            intent="research",
+            payload={"query": "JARVIS"},
+            description="Research the requested goal.",
+        )
+    )
+
+    results = await executive_engine.execute_plan(plan)
+
+    assert isinstance(results, list)
+    assert len(results) == 1
+
+    result = results[0]
+
+    assert isinstance(result, CapabilityResult)
+    assert result.success is True
+    assert result.metadata["adapter"] == "research"
+    assert result.data["intent"] == "research"
+    assert result.data["payload"] == {"query": "JARVIS"}
 
 
 @pytest.mark.asyncio
