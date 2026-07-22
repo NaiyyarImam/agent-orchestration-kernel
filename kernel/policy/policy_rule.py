@@ -15,6 +15,7 @@ class PolicyRule:
     allowed: bool = True
     requires_approval: bool = False
     reason: str = "Allowed by policy."
+    priority: int = 0
     metadata: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
@@ -48,6 +49,7 @@ class PolicyRule:
             "allowed": self.allowed,
             "requires_approval": self.requires_approval,
             "reason": self.reason,
+            "priority": self.priority,
             "metadata": dict(self.metadata or {}),
         }
 
@@ -59,5 +61,6 @@ class PolicyRule:
             allowed=bool(data.get("allowed", True)),
             requires_approval=bool(data.get("requires_approval", False)),
             reason=str(data.get("reason", "Allowed by policy.")),
+            priority=int(data.get("priority", 0)),
             metadata=dict(data.get("metadata", {})),
         )
