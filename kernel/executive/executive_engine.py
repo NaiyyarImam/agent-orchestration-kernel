@@ -20,6 +20,7 @@ from kernel.planning.task_plan import TaskPlan
 from kernel.security.security_manager import SecurityManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
+from kernel.policy import PolicyEngine
 
 
 class ExecutiveEngine:
@@ -36,6 +37,7 @@ class ExecutiveEngine:
         workflows: WorkflowManager,
         events: InMemoryEventBus,
         security: SecurityManager,
+        policy: PolicyEngine,
     ) -> None:
         self._config = config
         self._memory = memory
@@ -45,6 +47,7 @@ class ExecutiveEngine:
         self._workflows = workflows
         self._events = events
         self._security = security
+        self._policy = policy
 
     async def execute_capability(
         self,
@@ -65,6 +68,16 @@ class ExecutiveEngine:
         if not allowed:
             raise PermissionError(
                 f"Execution denied for intent '{intent}'."
+            )
+
+        decision = self._policy.evaluate(intent)
+
+        if not decision.allowed:
+            raise PermissionError(decision.reason)
+
+        if decision.requires_approval:
+            raise PermissionError(
+                f"Capability '{intent}' requires approval before execution."
             )
 
         task = CapabilityTask(
@@ -164,3 +177,8 @@ class ExecutiveEngine:
     @property
     def security(self) -> SecurityManager:
         return self._security
+
+    @property
+    def policy(self) -> PolicyEngine:
+        """Return the Kernel Policy Engine."""
+        return self._policy

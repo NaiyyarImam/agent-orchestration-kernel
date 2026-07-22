@@ -12,6 +12,7 @@ from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
+from kernel.policy import PolicyEngine, PolicyRule
 from kernel.interfaces.capability_adapter import CapabilityResult
 from kernel.planning.execution_step import ExecutionStep
 from kernel.planning.task_plan import TaskPlan
@@ -62,6 +63,15 @@ async def executive_engine() -> ExecutiveEngine:
     config = ConfigManager()
     models = ModelManager()
 
+    policy = PolicyEngine([
+        PolicyRule(intent="speech_to_text", allowed=True),
+        PolicyRule(intent="remember", allowed=True),
+        PolicyRule(intent="research", allowed=True),
+        PolicyRule(intent="generate_code", allowed=True),
+        PolicyRule(intent="web_search", allowed=True),
+        PolicyRule(intent="read_file", allowed=True),
+    ])
+
     engine = ExecutiveEngine(
         memory=memory,
         workflows=WorkflowManager(),
@@ -71,6 +81,7 @@ async def executive_engine() -> ExecutiveEngine:
         security=SecurityManager(),
         config=config,
         models=models,
+        policy=policy,
     )
 
     return engine
@@ -214,8 +225,42 @@ async def test_execute_plan(
 
 @pytest.mark.asyncio
 async def test_execute_unknown_capability_raises(executive_engine: ExecutiveEngine) -> None:
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        PermissionError,
+        match="No policy rule registered",
+    ):
         await executive_engine.execute_capability(
             "does-not-exist",
             {},
         )
+
+
+# Policy tests
+
+@pytest.mark.asyncio
+async def test_policy_denied_blocks_execution(executive_engine: ExecutiveEngine) -> None:
+    executive_engine.policy.register(
+        PolicyRule(intent="blocked.intent", allowed=False, reason="Blocked by policy")
+    )
+
+    with pytest.raises(PermissionError, match="Blocked by policy"):
+        await executive_engine.execute_capability("blocked.intent", {})
+
+
+@pytest.mark.asyncio
+async def test_policy_requires_approval_blocks_execution(executive_engine: ExecutiveEngine) -> None:
+    executive_engine.policy.register(
+        PolicyRule(
+            intent="approval.intent",
+            allowed=True,
+            requires_approval=True,
+            reason="Approval required",
+        )
+    )
+
+    with pytest.raises(PermissionError, match="requires approval"):
+        await executive_engine.execute_capability("approval.intent", {})
+
+
+def test_policy_property_returns_engine_policy(executive_engine: ExecutiveEngine) -> None:
+    assert isinstance(executive_engine.policy, PolicyEngine)

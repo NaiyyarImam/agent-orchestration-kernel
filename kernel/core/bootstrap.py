@@ -26,6 +26,7 @@ from kernel.storage.storage_manager import StorageManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.utils.logger import get_logger
 from kernel.workflow.workflow_manager import WorkflowManager
+from kernel.policy import PolicyEngine
 
 
 class Bootstrap:
@@ -34,7 +35,7 @@ class Bootstrap:
     def __init__(self, root: str | Path = ".") -> None:
         self.root = Path(root).resolve()
 
-    def build(self) -> ExecutiveEngine:
+    def build(self, *, policy: PolicyEngine) -> ExecutiveEngine:
         config = ConfigManager()
 
         logger = get_logger("Bootstrap")
@@ -151,6 +152,7 @@ class Bootstrap:
             workflows=workflows,
             events=events,
             security=security,
+            policy=policy,
         )
 
         logger.info("Bootstrap completed successfully")

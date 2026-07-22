@@ -8,6 +8,8 @@ from typing import Any
 from kernel.core.bootstrap import Bootstrap
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.utils.logger import get_logger
+from kernel.policy import PolicyEngine
+from kernel.policy import PolicyRule
 
 
 class Kernel:
@@ -15,6 +17,7 @@ class Kernel:
 
     def __init__(self, root: str | Path = ".") -> None:
         self._bootstrap = Bootstrap(root)
+        self._policy = PolicyEngine()
         self._engine: ExecutiveEngine | None = None
         self._started = False
         self._logger = get_logger("Kernel")
@@ -26,7 +29,7 @@ class Kernel:
             return
 
         self._logger.info("Starting JARVIS Kernel")
-        self._engine = self._bootstrap.build()
+        self._engine = self._bootstrap.build(policy=self._policy)
         # Initialize all registered capability adapters.
         for adapter in self._engine.adapters._adapters.values():
             await adapter.initialize()
@@ -59,7 +62,18 @@ class Kernel:
             raise RuntimeError("Kernel has not been started.")
 
         self._logger.debug("Running Kernel health check")
-        return await self._engine.health_check()
+        health = await self._engine.health_check()
+        health["policy_rules"] = len(self.policy)
+        return health
+
+    @property
+    def policy(self) -> PolicyEngine:
+        """Return the Kernel Policy Engine."""
+        return self._policy
+
+    def evaluate_policy(self, intent: str) -> PolicyRule:
+        """Evaluate a policy decision for the supplied intent."""
+        return self._policy.evaluate(intent)
 
     @property
     def engine(self) -> ExecutiveEngine:
