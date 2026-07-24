@@ -16,7 +16,7 @@ from kernel.policy import PolicyEngine, PolicyRule
 from kernel.interfaces.capability_adapter import CapabilityResult
 from kernel.planning.execution_step import ExecutionStep
 from kernel.planning.task_plan import TaskPlan
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from kernel.memory.memory_manager import MemoryManager
 from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
 from kernel.security.security_manager import SecurityManager
@@ -24,6 +24,13 @@ from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
 from kernel.config.config_manager import ConfigManager
 from kernel.models.model_manager import ModelManager
+
+# Optional integrations
+from kernel.environment.digital_twin import DigitalTwin
+from kernel.observability.observability_manager import ObservabilityManager
+from kernel.planning.planner import Planner
+from kernel.plugin.plugin_manager import PluginManager
+from kernel.recovery.recovery_manager import RecoveryManager
 
 import pytest_asyncio
 
@@ -264,3 +271,176 @@ async def test_policy_requires_approval_blocks_execution(executive_engine: Execu
 
 def test_policy_property_returns_engine_policy(executive_engine: ExecutiveEngine) -> None:
     assert isinstance(executive_engine.policy, PolicyEngine)
+
+
+def test_optional_integrations_default_to_none(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    assert executive_engine.planner is None
+    assert executive_engine.plugins is None
+    assert executive_engine.recovery is None
+    assert executive_engine.observability is None
+    assert executive_engine.digital_twin is None
+
+
+def test_optional_integrations_are_stored() -> None:
+    adapters = CapabilityAdapterManager()
+    events = AsyncMock()
+
+    engine = ExecutiveEngine(
+        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
+        workflows=WorkflowManager(),
+        tools=ToolRegistry(),
+        adapters=adapters,
+        events=events,
+        security=SecurityManager(),
+        config=ConfigManager(),
+        models=ModelManager(),
+        policy=PolicyEngine([]),
+        planner=Planner(),
+        plugins=PluginManager(),
+        recovery=RecoveryManager(),
+        observability=ObservabilityManager(),
+        digital_twin=DigitalTwin(),
+    )
+
+    assert isinstance(engine.planner, Planner)
+    assert isinstance(engine.plugins, PluginManager)
+    assert isinstance(engine.recovery, RecoveryManager)
+    assert isinstance(engine.observability, ObservabilityManager)
+    assert isinstance(engine.digital_twin, DigitalTwin)
+
+
+
+
+@pytest.mark.asyncio
+async def test_execute_request_without_planner_raises(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    with pytest.raises(RuntimeError, match="No Planner has been configured"):
+        await executive_engine.execute_request("Research JARVIS")
+
+
+@pytest.mark.asyncio
+async def test_execute_request_policy_denied() -> None:
+    planner = MagicMock()
+    planner.create_plan.return_value = TaskPlan(plan_id="1", goal="Denied")
+
+    policy = PolicyEngine([
+        PolicyRule(intent="Denied", allowed=False, reason="Blocked by policy"),
+    ])
+
+    engine = ExecutiveEngine(
+        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
+        workflows=WorkflowManager(),
+        tools=ToolRegistry(),
+        adapters=CapabilityAdapterManager(),
+        events=AsyncMock(),
+        security=SecurityManager(),
+        config=ConfigManager(),
+        models=ModelManager(),
+        policy=policy,
+        planner=planner,
+    )
+
+    with pytest.raises(PermissionError) as exc_info:
+        await engine.execute_request("Denied")
+
+    assert str(exc_info.value) in {
+        "Blocked by policy",
+        "No policy rule registered for this intent.",
+    }
+
+
+@pytest.mark.asyncio
+async def test_execute_request_calls_planner_and_execute_plan(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+    executive_engine._planner = planner
+
+    expected = [MagicMock(spec=CapabilityResult)]
+    executive_engine.execute_plan = AsyncMock(return_value=expected)
+
+    results = await executive_engine.execute_request(
+        "research",
+        context={"topic": "JARVIS"},
+    )
+
+    planner.create_plan.assert_called_once_with(
+        "research",
+        context={"topic": "JARVIS"},
+    )
+    executive_engine.execute_plan.assert_awaited_once_with(plan)
+    assert results is expected
+
+
+# Additional tests for digital twin context and context preservation
+@pytest.mark.asyncio
+async def test_execute_request_includes_digital_twin_snapshot() -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+
+    digital_twin = MagicMock()
+    digital_twin.get_snapshot.return_value = {"os": "macOS"}
+
+    engine = ExecutiveEngine(
+        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
+        workflows=WorkflowManager(),
+        tools=ToolRegistry(),
+        adapters=CapabilityAdapterManager(),
+        events=AsyncMock(),
+        security=SecurityManager(),
+        config=ConfigManager(),
+        models=ModelManager(),
+        policy=PolicyEngine([
+            PolicyRule(intent="research", allowed=True),
+        ]),
+        planner=planner,
+        digital_twin=digital_twin,
+    )
+
+    engine.execute_plan = AsyncMock(return_value=[])
+
+    await engine.execute_request(
+        "research",
+        context={"topic": "JARVIS"},
+    )
+
+    digital_twin.get_snapshot.assert_called_once()
+
+    planner.create_plan.assert_called_once_with(
+        "research",
+        context={
+            "topic": "JARVIS",
+            "environment": {"os": "macOS"},
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_request_without_digital_twin_preserves_context(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+
+    executive_engine._planner = planner
+    executive_engine.execute_plan = AsyncMock(return_value=[])
+
+    await executive_engine.execute_request(
+        "research",
+        context={"topic": "JARVIS"},
+    )
+
+    planner.create_plan.assert_called_once_with(
+        "research",
+        context={"topic": "JARVIS"},
+    )

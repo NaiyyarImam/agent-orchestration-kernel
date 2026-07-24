@@ -20,7 +20,15 @@ from kernel.planning.task_plan import TaskPlan
 from kernel.security.security_manager import SecurityManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
+
 from kernel.policy import PolicyEngine
+
+# v2.0.1 dependency injection imports
+from kernel.environment.digital_twin import DigitalTwin
+from kernel.observability.observability_manager import ObservabilityManager
+from kernel.planning.planner import Planner
+from kernel.plugin.plugin_manager import PluginManager
+from kernel.recovery.recovery_manager import RecoveryManager
 
 
 class ExecutiveEngine:
@@ -38,6 +46,11 @@ class ExecutiveEngine:
         events: InMemoryEventBus,
         security: SecurityManager,
         policy: PolicyEngine,
+        planner: Planner | None = None,
+        plugins: PluginManager | None = None,
+        recovery: RecoveryManager | None = None,
+        observability: ObservabilityManager | None = None,
+        digital_twin: DigitalTwin | None = None,
     ) -> None:
         self._config = config
         self._memory = memory
@@ -48,6 +61,11 @@ class ExecutiveEngine:
         self._events = events
         self._security = security
         self._policy = policy
+        self._planner = planner
+        self._plugins = plugins
+        self._recovery = recovery
+        self._observability = observability
+        self._digital_twin = digital_twin
 
     async def execute_capability(
         self,
@@ -122,6 +140,39 @@ class ExecutiveEngine:
 
         return results
 
+    async def execute_request(
+        self,
+        objective: str,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> list[CapabilityResult]:
+        """Create, validate, and execute a task plan for a high-level request."""
+
+        if self._planner is None:
+            raise RuntimeError("No Planner has been configured.")
+
+        planner_context = dict(context or {})
+
+        if self._digital_twin is not None:
+            planner_context["environment"] = self._digital_twin.get_snapshot()
+
+        plan = self._planner.create_plan(
+            objective,
+            context=planner_context,
+        )
+
+        decision = self._policy.evaluate(objective)
+
+        if not decision.allowed:
+            raise PermissionError(decision.reason)
+
+        if decision.requires_approval:
+            raise PermissionError(
+                f"Request '{objective}' requires approval before execution."
+            )
+
+        return await self.execute_plan(plan)
+
     async def execute_workflow(
         self,
         workflow: str,
@@ -182,3 +233,23 @@ class ExecutiveEngine:
     def policy(self) -> PolicyEngine:
         """Return the Kernel Policy Engine."""
         return self._policy
+
+    @property
+    def planner(self) -> Planner | None:
+        return self._planner
+
+    @property
+    def plugins(self) -> PluginManager | None:
+        return self._plugins
+
+    @property
+    def recovery(self) -> RecoveryManager | None:
+        return self._recovery
+
+    @property
+    def observability(self) -> ObservabilityManager | None:
+        return self._observability
+
+    @property
+    def digital_twin(self) -> DigitalTwin | None:
+        return self._digital_twin
