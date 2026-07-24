@@ -1,63 +1,30 @@
-
-
-"""In-memory implementation of the JARVIS Kernel EventBus interface."""
+"""In-memory implementation of the Kernel EventBus."""
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Awaitable
-from typing import Any
-
-from kernel.interfaces.event_bus import EventBus, EventHandler
+from kernel.events.event import Event
+from kernel.events.event_bus import EventBus
+from kernel.events.event_handler import EventHandler
+from kernel.events.event_subscription import EventSubscription
 
 
 class InMemoryEventBus(EventBus):
-    """Simple asynchronous publish/subscribe event bus.
+    """Concrete in-memory EventBus implementation.
 
-    This implementation is intended for the initial Kernel and unit tests.
-    It can later be replaced by Redis, NATS, Kafka, or another backend
-    without changing Kernel code.
+    This class currently reuses the synchronous EventBus implementation.
+    It exists as the replaceable infrastructure layer for future backends
+    such as Redis, NATS, Kafka, or other distributed transports.
     """
 
-    def __init__(self) -> None:
-        self._subscribers: dict[str, list[EventHandler]] = defaultdict(list)
+    def subscribe(self, handler: EventHandler) -> EventSubscription:
+        return super().subscribe(handler)
 
-    async def publish(
-        self,
-        event_type: str,
-        payload: dict[str, Any],
-    ) -> None:
-        """Publish an event to all registered subscribers."""
-        for handler in self._subscribers[event_type]:
-            result = handler(payload)
-            if isinstance(result, Awaitable):
-                await result
+    def unsubscribe(self, handler: EventHandler) -> bool:
+        return super().unsubscribe(handler)
 
-    async def subscribe(
-        self,
-        event_type: str,
-        handler: EventHandler,
-    ) -> None:
-        """Register an event handler."""
-        if handler not in self._subscribers[event_type]:
-            self._subscribers[event_type].append(handler)
-
-    async def unsubscribe(
-        self,
-        event_type: str,
-        handler: EventHandler,
-    ) -> None:
-        """Remove a registered event handler."""
-        if handler in self._subscribers[event_type]:
-            self._subscribers[event_type].remove(handler)
-
-    async def subscribers(
-        self,
-        event_type: str,
-    ) -> list[EventHandler]:
-        """Return all subscribers for an event type."""
-        return list(self._subscribers[event_type])
+    def publish(self, event: Event) -> None:
+        super().publish(event)
 
     async def health_check(self) -> bool:
-        """Return True while the event bus is operational."""
+        """Return True while the in-memory backend is operational."""
         return True
