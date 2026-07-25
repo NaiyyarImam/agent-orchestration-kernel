@@ -43,6 +43,15 @@ class ToolRegistry:
 
         return sorted(self._tools.keys())
 
+    def tool_info(self, tool_name: str) -> dict[str, Any]:
+        """Return metadata about a registered tool."""
+        tool = self.get(tool_name)
+        return {
+            "name": tool.name,
+            "description": getattr(tool, "description", ""),
+            "type": type(tool).__name__,
+        }
+
     async def invoke(
         self,
         tool_name: str,
@@ -72,6 +81,14 @@ class ToolRegistry:
             for tool in self._tools.values()
         )
 
+    async def registry_info(self) -> dict[str, Any]:
+        """Return runtime information about the registry."""
+        return {
+            "healthy": await self.health_check(),
+            "tool_count": self.count,
+            "tools": self.list_tools(),
+        }
+
     def exists(self, tool_name: str) -> bool:
         """Return True if a tool is registered."""
 
@@ -82,6 +99,9 @@ class ToolRegistry:
 
         self._tools.clear()
 
+    def is_empty(self) -> bool:
+        """Return whether the registry contains any tools."""
+        return not self._tools
     @property
     def count(self) -> int:
         """Return the number of registered tools."""
