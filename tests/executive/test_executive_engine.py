@@ -378,6 +378,55 @@ async def test_execute_request_calls_planner_and_execute_plan(
     assert results is expected
 
 
+@pytest.mark.asyncio
+async def test_execute_request_publishes_started_and_completed(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+    executive_engine._planner = planner
+    executive_engine.execute_plan = AsyncMock(return_value=[])
+
+    await executive_engine.execute_request("research")
+
+    assert executive_engine._events.publish.await_count == 2
+    assert executive_engine._events.publish.await_args_list[0].args == (
+        "request.started",
+        {"objective": "research"},
+    )
+    assert executive_engine._events.publish.await_args_list[1].args == (
+        "request.completed",
+        {"objective": "research", "success": True},
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_request_publishes_failed_and_reraises(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+    executive_engine._planner = planner
+    execution_error = RuntimeError("execution failed")
+    executive_engine.execute_plan = AsyncMock(side_effect=execution_error)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await executive_engine.execute_request("research")
+
+    assert exc_info.value is execution_error
+    assert executive_engine._events.publish.await_count == 2
+    assert executive_engine._events.publish.await_args_list[0].args == (
+        "request.started",
+        {"objective": "research"},
+    )
+    assert executive_engine._events.publish.await_args_list[1].args == (
+        "request.failed",
+        {"objective": "research", "success": False},
+    )
+
+
 # Additional tests for digital twin context and context preservation
 @pytest.mark.asyncio
 async def test_execute_request_includes_digital_twin_snapshot() -> None:

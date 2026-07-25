@@ -151,6 +151,13 @@ class ExecutiveEngine:
         if self._planner is None:
             raise RuntimeError("No Planner has been configured.")
 
+        await self._events.publish(
+            "request.started",
+            {
+                "objective": objective,
+            },
+        )
+
         planner_context = dict(context or {})
 
         if self._digital_twin is not None:
@@ -171,7 +178,27 @@ class ExecutiveEngine:
                 f"Request '{objective}' requires approval before execution."
             )
 
-        return await self.execute_plan(plan)
+        try:
+            results = await self.execute_plan(plan)
+        except Exception:
+            await self._events.publish(
+                "request.failed",
+                {
+                    "objective": objective,
+                    "success": False,
+                },
+            )
+            raise
+
+        await self._events.publish(
+            "request.completed",
+            {
+                "objective": objective,
+                "success": True,
+            },
+        )
+
+        return results
 
     async def execute_workflow(
         self,
