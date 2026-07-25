@@ -93,11 +93,27 @@ class WorkflowManager(WorkflowEngine):
             },
         )
 
+    async def is_running(self, workflow_id: str) -> bool:
+        """Return whether the specified workflow is currently running."""
+        workflow = await self.status(workflow_id)
+        return workflow.get("status") == "running"
+
     async def list_workflows(self) -> list[str]:
         """Return registered workflows."""
 
         return sorted(self._workflows.keys())
 
+    async def workflow_count(self) -> int:
+        """Return the number of registered workflows."""
+        return len(await self.list_workflows())
+
     async def health_check(self) -> bool:
         """Return True if the workflow manager is operational."""
         return True
+
+    async def workflow_info(self) -> dict[str, Any]:
+        """Return metadata describing the workflow manager."""
+        return {
+            "registered_workflows": await self.workflow_count(),
+            "running_workflows": len(self._running),
+        }
