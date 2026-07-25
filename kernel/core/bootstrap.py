@@ -44,9 +44,14 @@ class Bootstrap:
 
         storage = StorageManager(config.storage.root)
 
-        memory_store = SQLiteMemoryStore(
-            config.storage.database
-        )
+        if config.memory.backend == "sqlite":
+            memory_store = SQLiteMemoryStore(
+                config.storage.database
+            )
+        else:
+            raise ValueError(
+                f"Unsupported memory backend: {config.memory.backend}"
+            )
 
         memory = MemoryManager(memory_store)
 
@@ -140,9 +145,18 @@ class Bootstrap:
 
         workflows = WorkflowManager()
 
-        events = InMemoryEventBus()
+        if config.events.backend == "in_memory":
+            events = InMemoryEventBus()
+        else:
+            raise ValueError(
+                f"Unsupported event backend: {config.events.backend}"
+            )
 
-        observability = ObservabilityManager()
+        observability = (
+            ObservabilityManager()
+            if config.observability.enabled
+            else None
+        )
 
         security = SecurityManager()
 

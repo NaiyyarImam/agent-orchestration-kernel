@@ -41,10 +41,28 @@ class StorageConfig:
     database: Path
 
 
+
 @dataclass(slots=True, frozen=True)
 class LoggingConfig:
     level: str
     debug: bool
+
+
+# --- New immutable configuration dataclasses ---
+
+@dataclass(slots=True, frozen=True)
+class EventConfig:
+    backend: str
+
+
+@dataclass(slots=True, frozen=True)
+class MemoryConfig:
+    backend: str
+
+
+@dataclass(slots=True, frozen=True)
+class ObservabilityConfig:
+    enabled: bool
 
 
 class ConfigManager:
@@ -87,6 +105,18 @@ class ConfigManager:
         self.logging = LoggingConfig(
             level=self._config.log_level,
             debug=self._config.debug,
+        )
+
+        self.events = EventConfig(
+            backend=os.getenv("JARVIS_EVENT_BACKEND", "in_memory"),
+        )
+
+        self.memory = MemoryConfig(
+            backend=os.getenv("JARVIS_MEMORY_BACKEND", "sqlite"),
+        )
+
+        self.observability = ObservabilityConfig(
+            enabled=os.getenv("JARVIS_OBSERVABILITY", "true").lower() == "true",
         )
 
     @property
