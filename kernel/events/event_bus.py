@@ -42,6 +42,10 @@ class EventBus:
         for subscription in tuple(self._subscriptions.get(event.name, [])):
             subscription.handler.handle(event)
 
+    def publish_by_name(self, event_name: str, **payload: object) -> None:
+        """Create and publish an Event from an event name and payload."""
+        self.publish(Event(name=event_name, payload=dict(payload)))
+
     def subscriptions_for(self, event_name: str) -> tuple[EventSubscription, ...]:
         """Return subscriptions for the given event name."""
         return tuple(self._subscriptions.get(event_name.strip(), []))

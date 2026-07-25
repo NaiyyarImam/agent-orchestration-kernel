@@ -151,6 +151,9 @@ class ExecutiveEngine:
         if self._planner is None:
             raise RuntimeError("No Planner has been configured.")
 
+        if self._observability is not None:
+            self._observability.record_request_started(objective)
+
         await self._events.publish(
             "request.started",
             {
@@ -181,6 +184,8 @@ class ExecutiveEngine:
         try:
             results = await self.execute_plan(plan)
         except Exception:
+            if self._observability is not None:
+                self._observability.record_request_failed(objective)
             await self._events.publish(
                 "request.failed",
                 {
@@ -189,6 +194,9 @@ class ExecutiveEngine:
                 },
             )
             raise
+
+        if self._observability is not None:
+            self._observability.record_request_completed(objective)
 
         await self._events.publish(
             "request.completed",

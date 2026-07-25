@@ -427,6 +427,77 @@ async def test_execute_request_publishes_failed_and_reraises(
     )
 
 
+# Inserted tests for observability integration
+@pytest.mark.asyncio
+async def test_execute_request_records_observability_started_and_completed() -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+
+    observability = MagicMock()
+
+    engine = ExecutiveEngine(
+        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
+        workflows=WorkflowManager(),
+        tools=ToolRegistry(),
+        adapters=CapabilityAdapterManager(),
+        events=AsyncMock(),
+        security=SecurityManager(),
+        config=ConfigManager(),
+        models=ModelManager(),
+        policy=PolicyEngine([
+            PolicyRule(intent="research", allowed=True),
+        ]),
+        planner=planner,
+        observability=observability,
+    )
+
+    engine.execute_plan = AsyncMock(return_value=[])
+
+    await engine.execute_request("research")
+
+    observability.record_request_started.assert_called_once_with("research")
+    observability.record_request_completed.assert_called_once_with("research")
+    observability.record_request_failed.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execute_request_records_observability_failed() -> None:
+    plan = TaskPlan(plan_id="plan-1", goal="Research")
+
+    planner = MagicMock()
+    planner.create_plan.return_value = plan
+
+    observability = MagicMock()
+
+    engine = ExecutiveEngine(
+        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
+        workflows=WorkflowManager(),
+        tools=ToolRegistry(),
+        adapters=CapabilityAdapterManager(),
+        events=AsyncMock(),
+        security=SecurityManager(),
+        config=ConfigManager(),
+        models=ModelManager(),
+        policy=PolicyEngine([
+            PolicyRule(intent="research", allowed=True),
+        ]),
+        planner=planner,
+        observability=observability,
+    )
+
+    execution_error = RuntimeError("execution failed")
+    engine.execute_plan = AsyncMock(side_effect=execution_error)
+
+    with pytest.raises(RuntimeError):
+        await engine.execute_request("research")
+
+    observability.record_request_started.assert_called_once_with("research")
+    observability.record_request_failed.assert_called_once_with("research")
+    observability.record_request_completed.assert_not_called()
+
+
 # Additional tests for digital twin context and context preservation
 @pytest.mark.asyncio
 async def test_execute_request_includes_digital_twin_snapshot() -> None:

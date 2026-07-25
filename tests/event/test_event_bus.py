@@ -61,6 +61,26 @@ def test_publish_to_multiple_handlers() -> None:
     assert handler1.events == [event]
     assert handler2.events == [event]
 
+def test_publish_by_name() -> None:
+    bus = EventBus()
+    handler = DummyHandler()
+    bus.subscribe(handler)
+
+    bus.publish_by_name(
+        "kernel.started",
+        source="kernel",
+        version="2.0",
+    )
+
+    assert len(handler.events) == 1
+
+    event = handler.events[0]
+    assert event.name == "kernel.started"
+    assert event.payload == {
+        "source": "kernel",
+        "version": "2.0",
+    }    
+
 
 def test_unsubscribe_handler() -> None:
     bus = EventBus()
