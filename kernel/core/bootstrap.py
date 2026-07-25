@@ -20,6 +20,7 @@ from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.memory.memory_manager import MemoryManager
 from kernel.models.model_manager import ModelManager
 from kernel.models.ollama_provider import OllamaProvider
+from kernel.observability.observability_manager import ObservabilityManager
 from kernel.security.security_manager import SecurityManager
 from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
 from kernel.storage.storage_manager import StorageManager
@@ -141,6 +142,8 @@ class Bootstrap:
 
         events = InMemoryEventBus()
 
+        observability = ObservabilityManager()
+
         security = SecurityManager()
 
         engine = ExecutiveEngine(
@@ -151,6 +154,7 @@ class Bootstrap:
             adapters=adapters,
             workflows=workflows,
             events=events,
+            observability=observability,
             security=security,
             policy=policy,
         )
