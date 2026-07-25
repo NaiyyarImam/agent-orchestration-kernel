@@ -140,6 +140,10 @@ class ExecutiveEngine:
 
         return results
 
+    def _capability_exists(self, capability: str) -> bool:
+        """Return whether a capability adapter is registered."""
+        return self._adapters.get(capability) is not None
+
     async def execute_request(
         self,
         objective: str,
@@ -170,6 +174,12 @@ class ExecutiveEngine:
             objective,
             context=planner_context,
         )
+
+        for step in plan.steps:
+            if not self._capability_exists(step.intent):
+                raise ValueError(
+                    f"Unknown capability: {step.intent}"
+                )
 
         decision = self._policy.evaluate(objective)
 

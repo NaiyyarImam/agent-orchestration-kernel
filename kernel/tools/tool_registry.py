@@ -102,6 +102,7 @@ class ToolRegistry:
     def is_empty(self) -> bool:
         """Return whether the registry contains any tools."""
         return not self._tools
+
     @property
     def count(self) -> int:
         """Return the number of registered tools."""
