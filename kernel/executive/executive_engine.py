@@ -192,7 +192,13 @@ class ExecutiveEngine:
             )
 
         try:
-            results = await self.execute_plan(plan)
+            if self._recovery is None:
+                results = await self.execute_plan(plan)
+            else:
+                results = await self._recovery.async_execute_with_recovery(
+                    self.execute_plan,
+                    plan,
+                )
         except Exception:
             if self._observability is not None:
                 self._observability.record_request_failed(objective)

@@ -36,6 +36,42 @@ class RecoveryManager:
             message=message,
         )
 
+    def execute_with_recovery(
+        self,
+        operation,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Execute an operation using the configured recovery policy."""
+        attempt = 0
+
+        while True:
+            try:
+                return operation(*args, **kwargs)
+            except Exception as exc:
+                result = self.recover(attempt, str(exc))
+                if result.action is not RecoveryAction.RETRY:
+                    raise
+                attempt += 1
+
+    async def async_execute_with_recovery(
+        self,
+        operation,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Execute an async operation using the configured recovery policy."""
+        attempt = 0
+
+        while True:
+            try:
+                return await operation(*args, **kwargs)
+            except Exception as exc:
+                result = self.recover(attempt, str(exc))
+                if result.action is not RecoveryAction.RETRY:
+                    raise
+                attempt += 1
+
     def can_retry(self, attempt: int) -> bool:
         """Return whether the next recovery action is a retry."""
         return self._policy.next_action(attempt) is RecoveryAction.RETRY
