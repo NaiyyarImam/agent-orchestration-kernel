@@ -10,6 +10,7 @@ and remote storage without changing Kernel components.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Final
 import json
 import os
 import shutil
@@ -18,14 +19,22 @@ import shutil
 class StorageManager:
     """Manage Kernel storage locations and filesystem operations."""
 
+    DEFAULT_BACKEND: Final[str] = "filesystem"
+
     def __init__(self, root: Path) -> None:
         self._root = Path(root).expanduser().resolve()
         self._root.mkdir(parents=True, exist_ok=True)
+        self._backend = self.DEFAULT_BACKEND
 
     @property
     def root(self) -> Path:
         """Return the root storage directory."""
         return self._root
+
+    @property
+    def backend(self) -> str:
+        """Return the active storage backend name."""
+        return self._backend
 
     def _resolve(self, relative_path: str) -> Path:
         """Resolve and validate a path beneath the storage root."""
@@ -130,3 +139,10 @@ class StorageManager:
         if not directory.exists():
             return []
         return sorted(directory.iterdir())
+
+    def backend_info(self) -> dict[str, str]:
+        """Return metadata describing the active storage backend."""
+        return {
+            "backend": self._backend,
+            "root": str(self._root),
+        }
