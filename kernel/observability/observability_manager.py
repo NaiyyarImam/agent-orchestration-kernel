@@ -46,6 +46,21 @@ class ObservabilityManager:
         """Finish a tracing span."""
         return self.tracer.finish_span(span)
 
+    def record_request_started(self, objective: str) -> None:
+        """Record the start of a request."""
+        self.log("INFO", "Request started", objective=objective)
+        self.increment_metric("requests.started")
+
+    def record_request_completed(self, objective: str) -> None:
+        """Record successful completion of a request."""
+        self.log("INFO", "Request completed", objective=objective)
+        self.increment_metric("requests.completed")
+
+    def record_request_failed(self, objective: str) -> None:
+        """Record failed completion of a request."""
+        self.log("ERROR", "Request failed", objective=objective)
+        self.increment_metric("requests.failed")
+
     def clear(self) -> None:
         """Clear all observability state."""
         self.logger.clear()

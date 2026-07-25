@@ -63,6 +63,45 @@ def test_start_and_finish_span() -> None:
     assert len(manager.tracer.spans) == 1
 
 
+def test_record_request_started() -> None:
+    manager = ObservabilityManager()
+
+    manager.record_request_started("research")
+
+    assert len(manager.logger.records) == 1
+    record = manager.logger.records[0]
+    assert record.level == "INFO"
+    assert record.message == "Request started"
+    assert record.metadata == {"objective": "research"}
+    assert manager.metrics.get("requests.started").value == 1.0
+
+
+def test_record_request_completed() -> None:
+    manager = ObservabilityManager()
+
+    manager.record_request_completed("research")
+
+    assert len(manager.logger.records) == 1
+    record = manager.logger.records[0]
+    assert record.level == "INFO"
+    assert record.message == "Request completed"
+    assert record.metadata == {"objective": "research"}
+    assert manager.metrics.get("requests.completed").value == 1.0
+
+
+def test_record_request_failed() -> None:
+    manager = ObservabilityManager()
+
+    manager.record_request_failed("research")
+
+    assert len(manager.logger.records) == 1
+    record = manager.logger.records[0]
+    assert record.level == "ERROR"
+    assert record.message == "Request failed"
+    assert record.metadata == {"objective": "research"}
+    assert manager.metrics.get("requests.failed").value == 1.0
+
+
 def test_snapshot() -> None:
     manager = ObservabilityManager()
 
