@@ -78,9 +78,21 @@ class ModelManager:
         """Return the number of registered providers."""
         return len(self._providers)
 
+    def active_provider(self) -> ModelProvider:
+        """Return the currently selected default provider."""
+        return self.default()
+
     def default_provider_name(self) -> str | None:
         """Return the default provider name."""
         return self._default_provider
+
+    def provider_info(self) -> dict[str, Any]:
+        """Return metadata describing the model manager state."""
+        return {
+            "default_provider": self._default_provider,
+            "providers": self.providers(),
+            "provider_count": self.provider_count(),
+        }
 
     def set_default(self, provider_name: str) -> None:
         """Set the default provider."""
@@ -136,6 +148,10 @@ class ModelManager:
             self._default_provider = next(iter(self._providers))
 
         return self._default_provider
+
+    def supports_provider(self, provider_name: str) -> bool:
+        """Return whether the requested provider is available."""
+        return self.has_provider(provider_name)
 
     async def health_check(self) -> dict[str, bool]:
         """Run health checks for all providers."""
