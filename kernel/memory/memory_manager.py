@@ -76,11 +76,27 @@ class MemoryManager:
         """Return all memory keys."""
         return await self._store.keys()
 
+    async def memory_count(self) -> int:
+        """Return the number of stored memories."""
+        return len(await self.list_memories())
+
     async def health_check(self) -> bool:
         """Return True if the underlying store is healthy."""
         return await self._store.health_check()
+
+    async def memory_info(self) -> dict[str, Any]:
+        """Return metadata describing the configured memory manager."""
+        keys = await self.list_memories()
+        return {
+            "store": type(self._store).__name__,
+            "memory_count": len(keys),
+        }
 
     @property
     def store(self) -> MemoryStore:
         """Expose the configured MemoryStore implementation."""
         return self._store
+
+    async def has_memory(self, key: str) -> bool:
+        """Return whether a memory with the given key exists."""
+        return await self.exists(key)
