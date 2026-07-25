@@ -232,6 +232,18 @@ class ExecutiveEngine:
             "security": await self._security.health_check(),
         }
 
+    async def engine_info(self) -> dict[str, Any]:
+        """Return runtime metadata describing the Executive Engine."""
+        health = await self.health_check()
+        return {
+            "healthy": all(health.values()),
+            "planner": self._planner is not None,
+            "plugins": self._plugins is not None,
+            "recovery": self._recovery is not None,
+            "observability": self._observability is not None,
+            "digital_twin": self._digital_twin is not None,
+        }
+
     @property
     def config(self) -> ConfigManager:
         return self._config
@@ -270,6 +282,11 @@ class ExecutiveEngine:
         return self._policy
 
     @property
+    def is_observability_enabled(self) -> bool:
+        """Return whether observability support is configured."""
+        return self._observability is not None
+
+    @property
     def planner(self) -> Planner | None:
         return self._planner
 
@@ -288,3 +305,14 @@ class ExecutiveEngine:
     @property
     def digital_twin(self) -> DigitalTwin | None:
         return self._digital_twin
+
+    @property
+    def capabilities(self) -> dict[str, bool]:
+        """Return which optional executive capabilities are configured."""
+        return {
+            "planner": self._planner is not None,
+            "plugins": self._plugins is not None,
+            "recovery": self._recovery is not None,
+            "observability": self._observability is not None,
+            "digital_twin": self._digital_twin is not None,
+        }
