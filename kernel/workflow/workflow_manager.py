@@ -12,6 +12,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from datetime import UTC, datetime
+
 from kernel.interfaces.workflow_engine import WorkflowEngine
 
 
@@ -21,6 +23,7 @@ class WorkflowManager(WorkflowEngine):
     def __init__(self) -> None:
         self._workflows: dict[str, Any] = {}
         self._running: dict[str, dict[str, Any]] = {}
+        self._history: dict[str, dict[str, Any]] = {}
 
     async def register_workflow(
         self,
@@ -44,13 +47,20 @@ class WorkflowManager(WorkflowEngine):
             )
 
         workflow = self._workflows[workflow_name]
-
         workflow_id = str(uuid.uuid4())
+        started_at = datetime.now(UTC)
 
-        self._running[workflow_id] = {
+        workflow_state = {
+            "id": workflow_id,
             "name": workflow_name,
             "status": "running",
+            "started_at": started_at,
+            "completed_at": None,
+            "failed_at": None,
+            "cancelled_at": None,
         }
+
+        self._running[workflow_id] = workflow_state
 
         try:
             if callable(workflow):
@@ -60,12 +70,17 @@ class WorkflowManager(WorkflowEngine):
             else:
                 result = workflow
 
-            self._running[workflow_id]["status"] = "completed"
-
+            workflow_state["status"] = "completed"
+            workflow_state["completed_at"] = datetime.now(UTC)
+            self._history[workflow_id] = dict(workflow_state)
+            self._running.pop(workflow_id, None)
             return result
 
         except Exception:
-            self._running[workflow_id]["status"] = "failed"
+            workflow_state["status"] = "failed"
+            workflow_state["failed_at"] = datetime.now(UTC)
+            self._history[workflow_id] = dict(workflow_state)
+            self._running.pop(workflow_id, None)
             raise
 
     async def cancel(
@@ -78,6 +93,9 @@ class WorkflowManager(WorkflowEngine):
             return False
 
         self._running[workflow_id]["status"] = "cancelled"
+        self._running[workflow_id]["cancelled_at"] = datetime.now(UTC)
+        self._history[workflow_id] = dict(self._running[workflow_id])
+        self._running.pop(workflow_id, None)
         return True
 
     async def status(
@@ -85,13 +103,11 @@ class WorkflowManager(WorkflowEngine):
         workflow_id: str,
     ) -> dict[str, Any]:
         """Return workflow status."""
-
-        return self._running.get(
-            workflow_id,
-            {
-                "status": "unknown",
-            },
-        )
+        if workflow_id in self._running:
+            return self._running[workflow_id]
+        if workflow_id in self._history:
+            return self._history[workflow_id]
+        return {"status": "unknown"}
 
     async def is_running(self, workflow_id: str) -> bool:
         """Return whether the specified workflow is currently running."""
@@ -116,7 +132,9 @@ class WorkflowManager(WorkflowEngine):
         return {
             "registered_workflows": await self.workflow_count(),
             "running_workflows": len(self._running),
+            "completed_workflows": len(self._history),
         }
+
     async def running_workflow_count(self) -> int:
         """Return the number of workflows currently tracked."""
         return len(self._running)
