@@ -20,8 +20,13 @@ class WorkflowEngine(ABC):
         self,
         name: str,
         workflow: Any,
+        *,
+        description: str | None = None,
+        version: str = "1.0.0",
+        tags: list[str] | None = None,
+        author: str | None = None,
     ) -> None:
-        """Register a workflow with the engine."""
+        """Register a workflow together with optional metadata."""
 
     @abstractmethod
     async def execute(
@@ -43,6 +48,13 @@ class WorkflowEngine(ABC):
     @abstractmethod
     async def list_workflows(self) -> list[str]:
         """Return the names of all registered workflows."""
+
+    @abstractmethod
+    async def workflow_metadata(
+        self,
+        workflow_name: str,
+    ) -> dict[str, Any]:
+        """Return metadata for a registered workflow."""
 
     @abstractmethod
     async def workflow_history(self) -> list[dict[str, Any]]:

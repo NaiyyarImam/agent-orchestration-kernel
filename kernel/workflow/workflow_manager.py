@@ -22,6 +22,7 @@ class WorkflowManager(WorkflowEngine):
 
     def __init__(self) -> None:
         self._workflows: dict[str, Any] = {}
+        self._workflow_metadata: dict[str, dict[str, Any]] = {}
         self._running: dict[str, dict[str, Any]] = {}
         self._history: dict[str, dict[str, Any]] = {}
 
@@ -29,9 +30,22 @@ class WorkflowManager(WorkflowEngine):
         self,
         name: str,
         workflow: Any,
+        *,
+        description: str | None = None,
+        version: str = "1.0.0",
+        tags: list[str] | None = None,
+        author: str | None = None,
     ) -> None:
         """Register a workflow."""
         self._workflows[name] = workflow
+        self._workflow_metadata[name] = {
+            "name": name,
+            "description": description,
+            "version": version,
+            "tags": list(tags or []),
+            "author": author,
+            "registered_at": datetime.now(UTC),
+        }
 
     async def execute(
         self,
@@ -118,6 +132,17 @@ class WorkflowManager(WorkflowEngine):
         """Return registered workflows."""
 
         return sorted(self._workflows.keys())
+
+    async def workflow_metadata(
+        self,
+        workflow_name: str,
+    ) -> dict[str, Any]:
+        """Return metadata for a registered workflow."""
+        if workflow_name not in self._workflow_metadata:
+            raise KeyError(
+                f"Workflow '{workflow_name}' is not registered."
+            )
+        return dict(self._workflow_metadata[workflow_name])
 
     async def workflow_count(self) -> int:
         """Return the number of registered workflows."""

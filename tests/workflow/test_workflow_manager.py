@@ -23,6 +23,59 @@ async def test_register_and_list_workflow() -> None:
 
 
 @pytest.mark.asyncio
+async def test_register_workflow_with_metadata() -> None:
+    manager = WorkflowManager()
+
+    async def workflow(context: dict):
+        return context
+
+    await manager.register_workflow(
+        "analysis",
+        workflow,
+        description="Repository analysis workflow",
+        version="2.0.0",
+        tags=["analysis", "repository"],
+        author="kernel",
+    )
+
+    metadata = await manager.workflow_metadata("analysis")
+
+    assert metadata["name"] == "analysis"
+    assert metadata["description"] == "Repository analysis workflow"
+    assert metadata["version"] == "2.0.0"
+    assert metadata["tags"] == ["analysis", "repository"]
+    assert metadata["author"] == "kernel"
+    assert metadata["registered_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_register_workflow_metadata_defaults() -> None:
+    manager = WorkflowManager()
+
+    async def workflow(context: dict):
+        return context
+
+    await manager.register_workflow("analysis", workflow)
+
+    metadata = await manager.workflow_metadata("analysis")
+
+    assert metadata["description"] is None
+    assert metadata["version"] == "1.0.0"
+    assert metadata["tags"] == []
+    assert metadata["author"] is None
+    assert metadata["registered_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_workflow_metadata_unknown_workflow_raises() -> None:
+    manager = WorkflowManager()
+
+    with pytest.raises(KeyError):
+        await manager.workflow_metadata("does-not-exist")
+
+
+
+@pytest.mark.asyncio
 async def test_execute_registered_workflow() -> None:
     manager = WorkflowManager()
 
