@@ -117,3 +117,14 @@ class WorkflowManager(WorkflowEngine):
             "registered_workflows": await self.workflow_count(),
             "running_workflows": len(self._running),
         }
+    async def running_workflow_count(self) -> int:
+        """Return the number of workflows currently tracked."""
+        return len(self._running)
+
+    async def manager_info(self) -> dict[str, Any]:
+        """Return overall workflow manager information."""
+        return {
+            "healthy": await self.health_check(),
+            "registered_workflows": await self.workflow_count(),
+            "running_workflows": await self.running_workflow_count(),
+        }
