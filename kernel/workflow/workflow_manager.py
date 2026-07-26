@@ -123,6 +123,26 @@ class WorkflowManager(WorkflowEngine):
         """Return the number of registered workflows."""
         return len(await self.list_workflows())
 
+    async def workflow_history(self) -> list[dict[str, Any]]:
+        """Return workflow execution history."""
+        return list(self._history.values())
+
+    async def completed_workflows(self) -> list[dict[str, Any]]:
+        """Return completed, failed, and cancelled workflows."""
+        return [
+            workflow
+            for workflow in self._history.values()
+            if workflow["status"] in {"completed", "failed", "cancelled"}
+        ]
+
+    async def clear_history(self) -> None:
+        """Clear workflow execution history."""
+        self._history.clear()
+
+    async def running_workflows(self) -> list[dict[str, Any]]:
+        """Return currently running workflows."""
+        return list(self._running.values())
+
     async def health_check(self) -> bool:
         """Return True if the workflow manager is operational."""
         return True

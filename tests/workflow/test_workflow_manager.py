@@ -21,6 +21,7 @@ async def test_register_and_list_workflow() -> None:
     assert workflows == ["analysis"]
 
 
+
 @pytest.mark.asyncio
 async def test_execute_registered_workflow() -> None:
     manager = WorkflowManager()
@@ -36,6 +37,56 @@ async def test_execute_registered_workflow() -> None:
     )
 
     assert result == {"ok": True, "value": 42}
+
+
+@pytest.mark.asyncio
+async def test_workflow_history_and_completed_workflows() -> None:
+    manager = WorkflowManager()
+
+    async def workflow(context: dict):
+        return context
+
+    await manager.register_workflow("analysis", workflow)
+
+    await manager.execute("analysis", context={"value": 1})
+
+    history = await manager.workflow_history()
+    completed = await manager.completed_workflows()
+
+    assert len(history) == 1
+    assert len(completed) == 1
+    assert completed[0]["status"] == "completed"
+    assert completed[0]["name"] == "analysis"
+
+
+@pytest.mark.asyncio
+async def test_clear_history() -> None:
+    manager = WorkflowManager()
+
+    async def workflow(context: dict):
+        return context
+
+    await manager.register_workflow("analysis", workflow)
+    await manager.execute("analysis")
+
+    assert len(await manager.workflow_history()) == 1
+
+    await manager.clear_history()
+
+    assert await manager.workflow_history() == []
+
+
+@pytest.mark.asyncio
+async def test_running_workflows_empty_after_completion() -> None:
+    manager = WorkflowManager()
+
+    async def workflow(context: dict):
+        return context
+
+    await manager.register_workflow("analysis", workflow)
+    await manager.execute("analysis")
+
+    assert await manager.running_workflows() == []
 
 
 @pytest.mark.asyncio

@@ -45,5 +45,21 @@ class WorkflowEngine(ABC):
         """Return the names of all registered workflows."""
 
     @abstractmethod
+    async def workflow_history(self) -> list[dict[str, Any]]:
+        """Return historical workflow execution records."""
+
+    @abstractmethod
+    async def completed_workflows(self) -> list[dict[str, Any]]:
+        """Return completed, failed, and cancelled workflow records."""
+
+    @abstractmethod
+    async def clear_history(self) -> None:
+        """Clear stored workflow execution history."""
+
+    @abstractmethod
+    async def running_workflows(self) -> list[dict[str, Any]]:
+        """Return metadata for currently running workflows."""
+
+    @abstractmethod
     async def health_check(self) -> bool:
         """Return True if the workflow engine is operational."""
