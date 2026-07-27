@@ -91,7 +91,10 @@ async def executive_engine() -> ExecutiveEngine:
         policy=policy,
     )
 
-    return engine
+    try:
+        yield engine
+    finally:
+        await store.close()
 
 @pytest.mark.asyncio
 async def test_execute_voice_capability(
@@ -283,32 +286,37 @@ def test_optional_integrations_default_to_none(
     assert executive_engine.digital_twin is None
 
 
-def test_optional_integrations_are_stored() -> None:
+@pytest.mark.asyncio
+async def test_optional_integrations_are_stored() -> None:
     adapters = CapabilityAdapterManager()
     events = AsyncMock()
 
-    engine = ExecutiveEngine(
-        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
-        workflows=WorkflowManager(),
-        tools=ToolRegistry(),
-        adapters=adapters,
-        events=events,
-        security=SecurityManager(),
-        config=ConfigManager(),
-        models=ModelManager(),
-        policy=PolicyEngine([]),
-        planner=Planner(),
-        plugins=PluginManager(),
-        recovery=RecoveryManager(),
-        observability=ObservabilityManager(),
-        digital_twin=DigitalTwin(),
-    )
+    store = SQLiteMemoryStore(":memory:")
+    try:
+        engine = ExecutiveEngine(
+            memory=MemoryManager(store),
+            workflows=WorkflowManager(),
+            tools=ToolRegistry(),
+            adapters=adapters,
+            events=events,
+            security=SecurityManager(),
+            config=ConfigManager(),
+            models=ModelManager(),
+            policy=PolicyEngine([]),
+            planner=Planner(),
+            plugins=PluginManager(),
+            recovery=RecoveryManager(),
+            observability=ObservabilityManager(),
+            digital_twin=DigitalTwin(),
+        )
 
-    assert isinstance(engine.planner, Planner)
-    assert isinstance(engine.plugins, PluginManager)
-    assert isinstance(engine.recovery, RecoveryManager)
-    assert isinstance(engine.observability, ObservabilityManager)
-    assert isinstance(engine.digital_twin, DigitalTwin)
+        assert isinstance(engine.planner, Planner)
+        assert isinstance(engine.plugins, PluginManager)
+        assert isinstance(engine.recovery, RecoveryManager)
+        assert isinstance(engine.observability, ObservabilityManager)
+        assert isinstance(engine.digital_twin, DigitalTwin)
+    finally:
+        await store.close()
 
 
 
@@ -330,26 +338,30 @@ async def test_execute_request_policy_denied() -> None:
         PolicyRule(intent="Denied", allowed=False, reason="Blocked by policy"),
     ])
 
-    engine = ExecutiveEngine(
-        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
-        workflows=WorkflowManager(),
-        tools=ToolRegistry(),
-        adapters=CapabilityAdapterManager(),
-        events=AsyncMock(),
-        security=SecurityManager(),
-        config=ConfigManager(),
-        models=ModelManager(),
-        policy=policy,
-        planner=planner,
-    )
+    store = SQLiteMemoryStore(":memory:")
+    try:
+        engine = ExecutiveEngine(
+            memory=MemoryManager(store),
+            workflows=WorkflowManager(),
+            tools=ToolRegistry(),
+            adapters=CapabilityAdapterManager(),
+            events=AsyncMock(),
+            security=SecurityManager(),
+            config=ConfigManager(),
+            models=ModelManager(),
+            policy=policy,
+            planner=planner,
+        )
 
-    with pytest.raises(PermissionError) as exc_info:
-        await engine.execute_request("Denied")
+        with pytest.raises(PermissionError) as exc_info:
+            await engine.execute_request("Denied")
 
-    assert str(exc_info.value) in {
-        "Blocked by policy",
-        "No policy rule registered for this intent.",
-    }
+        assert str(exc_info.value) in {
+            "Blocked by policy",
+            "No policy rule registered for this intent.",
+        }
+    finally:
+        await store.close()
 
 
 @pytest.mark.asyncio
@@ -437,29 +449,33 @@ async def test_execute_request_records_observability_started_and_completed() -> 
 
     observability = MagicMock()
 
-    engine = ExecutiveEngine(
-        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
-        workflows=WorkflowManager(),
-        tools=ToolRegistry(),
-        adapters=CapabilityAdapterManager(),
-        events=AsyncMock(),
-        security=SecurityManager(),
-        config=ConfigManager(),
-        models=ModelManager(),
-        policy=PolicyEngine([
-            PolicyRule(intent="research", allowed=True),
-        ]),
-        planner=planner,
-        observability=observability,
-    )
+    store = SQLiteMemoryStore(":memory:")
+    try:
+        engine = ExecutiveEngine(
+            memory=MemoryManager(store),
+            workflows=WorkflowManager(),
+            tools=ToolRegistry(),
+            adapters=CapabilityAdapterManager(),
+            events=AsyncMock(),
+            security=SecurityManager(),
+            config=ConfigManager(),
+            models=ModelManager(),
+            policy=PolicyEngine([
+                PolicyRule(intent="research", allowed=True),
+            ]),
+            planner=planner,
+            observability=observability,
+        )
 
-    engine.execute_plan = AsyncMock(return_value=[])
+        engine.execute_plan = AsyncMock(return_value=[])
 
-    await engine.execute_request("research")
+        await engine.execute_request("research")
 
-    observability.record_request_started.assert_called_once_with("research")
-    observability.record_request_completed.assert_called_once_with("research")
-    observability.record_request_failed.assert_not_called()
+        observability.record_request_started.assert_called_once_with("research")
+        observability.record_request_completed.assert_called_once_with("research")
+        observability.record_request_failed.assert_not_called()
+    finally:
+        await store.close()
 
 
 @pytest.mark.asyncio
@@ -471,31 +487,35 @@ async def test_execute_request_records_observability_failed() -> None:
 
     observability = MagicMock()
 
-    engine = ExecutiveEngine(
-        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
-        workflows=WorkflowManager(),
-        tools=ToolRegistry(),
-        adapters=CapabilityAdapterManager(),
-        events=AsyncMock(),
-        security=SecurityManager(),
-        config=ConfigManager(),
-        models=ModelManager(),
-        policy=PolicyEngine([
-            PolicyRule(intent="research", allowed=True),
-        ]),
-        planner=planner,
-        observability=observability,
-    )
+    store = SQLiteMemoryStore(":memory:")
+    try:
+        engine = ExecutiveEngine(
+            memory=MemoryManager(store),
+            workflows=WorkflowManager(),
+            tools=ToolRegistry(),
+            adapters=CapabilityAdapterManager(),
+            events=AsyncMock(),
+            security=SecurityManager(),
+            config=ConfigManager(),
+            models=ModelManager(),
+            policy=PolicyEngine([
+                PolicyRule(intent="research", allowed=True),
+            ]),
+            planner=planner,
+            observability=observability,
+        )
 
-    execution_error = RuntimeError("execution failed")
-    engine.execute_plan = AsyncMock(side_effect=execution_error)
+        execution_error = RuntimeError("execution failed")
+        engine.execute_plan = AsyncMock(side_effect=execution_error)
 
-    with pytest.raises(RuntimeError):
-        await engine.execute_request("research")
+        with pytest.raises(RuntimeError):
+            await engine.execute_request("research")
 
-    observability.record_request_started.assert_called_once_with("research")
-    observability.record_request_failed.assert_called_once_with("research")
-    observability.record_request_completed.assert_not_called()
+        observability.record_request_started.assert_called_once_with("research")
+        observability.record_request_failed.assert_called_once_with("research")
+        observability.record_request_completed.assert_not_called()
+    finally:
+        await store.close()
 
 
 # Additional tests for digital twin context and context preservation
@@ -509,38 +529,42 @@ async def test_execute_request_includes_digital_twin_snapshot() -> None:
     digital_twin = MagicMock()
     digital_twin.get_snapshot.return_value = {"os": "macOS"}
 
-    engine = ExecutiveEngine(
-        memory=MemoryManager(SQLiteMemoryStore(":memory:")),
-        workflows=WorkflowManager(),
-        tools=ToolRegistry(),
-        adapters=CapabilityAdapterManager(),
-        events=AsyncMock(),
-        security=SecurityManager(),
-        config=ConfigManager(),
-        models=ModelManager(),
-        policy=PolicyEngine([
-            PolicyRule(intent="research", allowed=True),
-        ]),
-        planner=planner,
-        digital_twin=digital_twin,
-    )
+    store = SQLiteMemoryStore(":memory:")
+    try:
+        engine = ExecutiveEngine(
+            memory=MemoryManager(store),
+            workflows=WorkflowManager(),
+            tools=ToolRegistry(),
+            adapters=CapabilityAdapterManager(),
+            events=AsyncMock(),
+            security=SecurityManager(),
+            config=ConfigManager(),
+            models=ModelManager(),
+            policy=PolicyEngine([
+                PolicyRule(intent="research", allowed=True),
+            ]),
+            planner=planner,
+            digital_twin=digital_twin,
+        )
 
-    engine.execute_plan = AsyncMock(return_value=[])
+        engine.execute_plan = AsyncMock(return_value=[])
 
-    await engine.execute_request(
-        "research",
-        context={"topic": "JARVIS"},
-    )
+        await engine.execute_request(
+            "research",
+            context={"topic": "JARVIS"},
+        )
 
-    digital_twin.get_snapshot.assert_called_once()
+        digital_twin.get_snapshot.assert_called_once()
 
-    planner.create_plan.assert_called_once_with(
-        "research",
-        context={
-            "topic": "JARVIS",
-            "environment": {"os": "macOS"},
-        },
-    )
+        planner.create_plan.assert_called_once_with(
+            "research",
+            context={
+                "topic": "JARVIS",
+                "environment": {"os": "macOS"},
+            },
+        )
+    finally:
+        await store.close()
 
 
 @pytest.mark.asyncio

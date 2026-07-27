@@ -18,31 +18,42 @@ async def test_bootstrap_builds_engine() -> None:
 
     engine = bootstrap.build(policy=PolicyEngine())
 
-    assert isinstance(engine, ExecutiveEngine)
+    try:
+        assert isinstance(engine, ExecutiveEngine)
+    finally:
+        await engine.memory.store.close()
 
 
-def test_bootstrap_build_returns_engine_with_components() -> None:
+@pytest.mark.asyncio
+async def test_bootstrap_build_returns_engine_with_components() -> None:
     """Bootstrap should wire the core managers."""
     bootstrap = Bootstrap()
 
     engine = bootstrap.build(policy=PolicyEngine())
 
-    assert engine.memory is not None
-    assert engine.models is not None
-    assert engine.tools is not None
-    assert engine.adapters is not None
-    assert engine.workflows is not None
-    assert engine.events is not None
-    assert engine.security is not None
+    try:
+        assert engine.memory is not None
+        assert engine.models is not None
+        assert engine.tools is not None
+        assert engine.adapters is not None
+        assert engine.workflows is not None
+        assert engine.events is not None
+        assert engine.security is not None
+    finally:
+        await engine.memory.store.close()
 
 
-def test_bootstrap_default_model_registered() -> None:
+@pytest.mark.asyncio
+async def test_bootstrap_default_model_registered() -> None:
     """Bootstrap should register at least one model provider."""
     bootstrap = Bootstrap()
 
     engine = bootstrap.build(policy=PolicyEngine())
 
-    provider = engine.models.default()
+    try:
+        provider = engine.models.default()
 
-    assert provider is not None
-    assert provider.name
+        assert provider is not None
+        assert provider.name
+    finally:
+        await engine.memory.store.close()
