@@ -130,6 +130,23 @@ class ModelManager:
             **kwargs,
         )
 
+    async def embed(
+        self,
+        text: str,
+        *,
+        provider: str | None = None,
+        **kwargs: Any,
+    ) -> list[float]:
+        """Generate embeddings using the selected provider."""
+
+        model = (
+            self.default()
+            if provider is None
+            else self.get(provider)
+        )
+
+        return await model.embed(text, **kwargs)
+
     def select_default(
         self,
         preferred: str = "qwen3:14b",
