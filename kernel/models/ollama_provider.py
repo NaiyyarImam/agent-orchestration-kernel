@@ -37,20 +37,39 @@ class OllamaProvider(ModelProvider):
             "timeout": self._timeout,
         }
 
-    async def generate(self, messages: list[dict], **kwargs: Any) -> dict:
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        system_prompt: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> str:
         """
         Generate a response from the Ollama model using OpenAI-compatible /chat/completions endpoint.
         """
+        messages: list[dict] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         url = f"{self._base_url}/chat/completions"
         payload = {
             "model": self._model,
             "messages": messages,
+            "temperature": temperature,
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
         payload.update(kwargs)
+
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json()
+
+        return data["choices"][0]["message"]["content"]
 
     async def embed(self, text: str) -> list[float]:
         """Generate an embedding using the configured Ollama model."""
