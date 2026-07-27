@@ -121,7 +121,7 @@ class Bootstrap:
             "Registered capability adapter: %s",
             browser_adapter.name,
         )
-        workspace_adapter = WorkspaceAdapter()
+        workspace_adapter = WorkspaceAdapter(storage)
         adapters.register(workspace_adapter)
         logger.info(
             "Registered capability adapter: %s",

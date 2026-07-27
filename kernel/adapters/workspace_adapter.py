@@ -9,12 +9,14 @@ from kernel.interfaces.capability_adapter import (
     CapabilityResult,
     CapabilityTask,
 )
+from kernel.storage.storage_manager import StorageManager
 
 
 class WorkspaceAdapter(CapabilityAdapter):
     """Framework-independent workspace adapter."""
 
-    def __init__(self) -> None:
+    def __init__(self, storage: StorageManager | None = None) -> None:
+        self._storage = storage
         self._initialized = False
 
     @property
