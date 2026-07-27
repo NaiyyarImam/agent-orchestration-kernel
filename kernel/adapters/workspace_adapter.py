@@ -51,8 +51,10 @@ class WorkspaceAdapter(CapabilityAdapter):
         if not self._initialized:
             raise RuntimeError("WorkspaceAdapter has not been initialized.")
 
+        if task.intent.lower() == "read_file":
+            return await self._execute_read_file(task)
+
         messages = {
-            "read_file": "Read file placeholder.",
             "write_file": "Write file placeholder.",
             "list_directory": "List directory placeholder.",
             "create_directory": "Create directory placeholder.",
@@ -77,6 +79,74 @@ class WorkspaceAdapter(CapabilityAdapter):
             },
             execution_time_ms=0.0,
         )
+
+    async def _execute_read_file(self, task: CapabilityTask) -> CapabilityResult:
+        path = task.payload.get("path")
+        if not path:
+            return CapabilityResult(
+                success=False,
+                error="Missing 'path' in payload",
+                metadata={
+                    "adapter": self.name,
+                    "status": "error",
+                },
+                execution_time_ms=0.0,
+            )
+
+        # If StorageManager not injected, fall back to placeholder behavior
+        if self._storage is None:
+            return CapabilityResult(
+                success=True,
+                data={
+                    "intent": task.intent,
+                    "payload": task.payload,
+                    "context": task.context,
+                    "message": "Read file placeholder.",
+                },
+                metadata={
+                    "adapter": self.name,
+                    "status": "placeholder",
+                },
+                execution_time_ms=0.0,
+            )
+
+        try:
+            full_path = self._storage.path(path)
+            content = full_path.read_text(encoding="utf-8")
+            return CapabilityResult(
+                success=True,
+                data={
+                    "intent": task.intent,
+                    "payload": task.payload,
+                    "context": task.context,
+                    "content": content,
+                },
+                metadata={
+                    "adapter": self.name,
+                    "status": "ok",
+                },
+                execution_time_ms=0.0,
+            )
+        except FileNotFoundError:
+            return CapabilityResult(
+                success=False,
+                error=f"File not found: {path}",
+                metadata={
+                    "adapter": self.name,
+                    "status": "error",
+                },
+                execution_time_ms=0.0,
+            )
+        except Exception as e:
+            return CapabilityResult(
+                success=False,
+                error=f"Failed to read file: {e}",
+                metadata={
+                    "adapter": self.name,
+                    "status": "error",
+                },
+                execution_time_ms=0.0,
+            )
 
     async def shutdown(self) -> None:
         self._initialized = False
