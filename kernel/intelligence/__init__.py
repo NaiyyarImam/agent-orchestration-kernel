@@ -1,11 +1,14 @@
 """Intelligence Layer for the JARVIS Kernel.
 
-Exports the Intent model, the rule-based IntentEngine, the Reasoning
-model, and the deterministic ReasoningEngine.
+Exports the Intent, Reasoning, and Decision models together with the
+rule-based IntentEngine, the deterministic ReasoningEngine, and the
+deterministic DecisionEngine.
 """
 
 from __future__ import annotations
 
+from kernel.intelligence.decision import Decision
+from kernel.intelligence.decision_engine import DecisionEngine
 from kernel.intelligence.intent import Intent
 from kernel.intelligence.intent_engine import IntentEngine
 from kernel.intelligence.reasoning import Reasoning
@@ -16,4 +19,6 @@ __all__ = [
     "IntentEngine",
     "Reasoning",
     "ReasoningEngine",
+    "Decision",
+    "DecisionEngine",
 ]
