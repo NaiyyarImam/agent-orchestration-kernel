@@ -1,4 +1,5 @@
 """Ollama ModelProvider implementation for the JARVIS Kernel."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,7 +11,13 @@ DEFAULT_TIMEOUT = 120.0
 
 
 class OllamaProvider(ModelProvider):
-    def __init__(self, model: str, *, base_url: str = DEFAULT_BASE_URL, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        model: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+    ):
         self._model = model
         self._base_url = base_url
         self._timeout = timeout
@@ -101,10 +108,7 @@ class OllamaProvider(ModelProvider):
 
                 data = response.json()
 
-                return (
-                    isinstance(data, dict)
-                    and isinstance(data.get("models"), list)
-                )
+                return isinstance(data, dict) and isinstance(data.get("models"), list)
 
         except (httpx.HTTPError, httpx.RequestError):
             return False
@@ -114,7 +118,7 @@ class OllamaProvider(ModelProvider):
 
     def _native_base_url(self) -> str:
         """Return the Ollama native API base URL."""
-        return self._base_url.removesuffix("/v1")
+        return self._base_url.rstrip("/").removesuffix("/v1")
 
     async def available_models(self) -> list[str]:
         """Discover installed Ollama models using the native Ollama API."""
@@ -125,11 +129,7 @@ class OllamaProvider(ModelProvider):
             response.raise_for_status()
             data = response.json()
 
-        return [
-            model["name"]
-            for model in data.get("models", [])
-            if "name" in model
-        ]
+        return [model["name"] for model in data.get("models", []) if "name" in model]
 
     def available_models_sync(self) -> list[str]:
         """Synchronously discover installed Ollama models.
@@ -143,11 +143,7 @@ class OllamaProvider(ModelProvider):
             response.raise_for_status()
             data = response.json()
 
-        return [
-            model["name"]
-            for model in data.get("models", [])
-            if "name" in model
-        ]
+        return [model["name"] for model in data.get("models", []) if "name" in model]
 
     async def model_info(self) -> dict:
         return self.metadata
