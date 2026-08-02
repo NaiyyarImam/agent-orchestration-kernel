@@ -63,9 +63,7 @@ class ToolRegistry:
 
         valid = await tool.validate(**kwargs)
         if not valid:
-            raise ValueError(
-                f"Validation failed for tool '{tool_name}'."
-            )
+            raise ValueError(f"Validation failed for tool '{tool_name}'.")
 
         return await tool.invoke(**kwargs)
 
@@ -76,10 +74,7 @@ class ToolRegistry:
         if not self._tools:
             return True
 
-        return all(
-            await tool.health_check()
-            for tool in self._tools.values()
-        )
+        return all([await tool.health_check() for tool in self._tools.values()])
 
     async def registry_info(self) -> dict[str, Any]:
         """Return runtime information about the registry."""
