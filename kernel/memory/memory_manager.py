@@ -84,6 +84,10 @@ class MemoryManager:
         """Return True if the underlying store is healthy."""
         return await self._store.health_check()
 
+    async def close(self) -> None:
+        """Release resources held by the configured memory backend."""
+        await self._store.close()
+
     async def memory_info(self) -> dict[str, Any]:
         """Return metadata describing the configured memory manager."""
         keys = await self.list_memories()

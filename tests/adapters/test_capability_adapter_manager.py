@@ -137,6 +137,40 @@ def test_exists_before_and_after_registration() -> None:
     assert manager.exists("coding") is True
 
 
+def test_can_handle_uses_intent_support_not_adapter_name() -> None:
+    manager = CapabilityAdapterManager()
+    manager.register(DummyAdapter("coding", supports_intent="code"))
+
+    assert manager.can_handle("code") is True
+    assert manager.can_handle("coding") is False
+
+
+def test_can_handle_unknown_intent_is_false() -> None:
+    manager = CapabilityAdapterManager()
+    manager.register(DummyAdapter("coding", supports_intent="code"))
+
+    assert manager.can_handle("does-not-exist") is False
+
+
+def test_can_handle_empty_registry_is_false() -> None:
+    manager = CapabilityAdapterManager()
+
+    assert manager.can_handle("code") is False
+
+
+def test_can_handle_matches_execute_routing() -> None:
+    manager = CapabilityAdapterManager()
+    manager.register(DummyAdapter("coding", supports_intent="code"))
+
+    assert manager.can_handle("code") is True
+    assert (
+        asyncio.run(
+            manager.execute(CapabilityTask(task_id="t1", intent="code"))
+        ).success
+        is True
+    )
+
+
 def test_list_adapters_returns_sorted_names() -> None:
     manager = CapabilityAdapterManager()
     manager.register(DummyAdapter("zebra"))

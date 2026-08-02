@@ -155,7 +155,17 @@ class TestSafetySets:
         assert DEFERRED_CAPABILITIES == {"background", "scheduled", "defer"}
 
     def test_safety_sets_do_not_overlap_with_known_capabilities(self) -> None:
-        known = {"chat", "research", "coding", "memory", "workspace", "browser"}
+        known = {
+            "chat",
+            "research",
+            "coding",
+            "remember",
+            "recall",
+            "search_memory",
+            "forget",
+            "workspace",
+            "browser",
+        }
 
         assert UNSAFE_CAPABILITIES.isdisjoint(known)
         assert DEFERRED_CAPABILITIES.isdisjoint(known)

@@ -19,12 +19,26 @@ FALLBACK_CONFIDENCE: Final[float] = 0.4
 
 # Intent name -> keywords that signal the intent.
 # Order matters: the first intent whose keywords match wins.
+# Memory intent names are canonical: they must match the operations
+# declared by the memory adapter (MemoryAdapter.supports()), so the
+# Intelligence Layer and the adapter vocabulary never diverge. The
+# memory group is checked before research because "search my memory"
+# contains the bare "search" research keyword.
 INTENT_RULES: Final[dict[str, tuple[str, ...]]] = {
+    "search_memory": (
+        "search memory",
+        "search my memory",
+        "find my memory",
+        "look through my memory",
+    ),
+    "remember": ("remember", "memorize", "store this"),
+    "recall": ("recall",),
+    "forget": ("forget", "delete memory", "erase memory"),
     "research": ("search", "research", "summarize", "look up", "find information"),
     "code": ("code", "python", "script", "function", "implement", "debug"),
-    "memory": ("remember", "recall", "forget", "memorize", "store this"),
     "workspace": ("file", "directory", "folder", "project", "open my", "workspace"),
     "browser": ("browse", "website", "web page", "visit", "open url", "navigate"),
+    "voice": ("voice", "speech", "speak", "transcribe", "listen"),
 }
 
 

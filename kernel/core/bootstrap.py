@@ -15,19 +15,27 @@ from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.config.config_manager import ConfigManager
+from kernel.environment.digital_twin import DigitalTwin
 from kernel.events.in_memory_event_bus import InMemoryEventBus
 from kernel.executive.executive_engine import ExecutiveEngine
+from kernel.intelligence.context_engine import ContextEngine
+from kernel.intelligence.decision_engine import DecisionEngine
+from kernel.intelligence.execution_engine import ExecutionEngine
+from kernel.intelligence.intent_engine import IntentEngine
+from kernel.intelligence.planning_engine import PlanningEngine
+from kernel.intelligence.reasoning_engine import ReasoningEngine
 from kernel.memory.memory_manager import MemoryManager
 from kernel.models.model_manager import ModelManager
 from kernel.models.ollama_provider import OllamaProvider
 from kernel.observability.observability_manager import ObservabilityManager
+from kernel.recovery.recovery_manager import RecoveryManager
 from kernel.security.security_manager import SecurityManager
-from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
 from kernel.storage.storage_manager import StorageManager
 from kernel.tools.tool_registry import ToolRegistry
-from kernel.utils.logger import get_logger
+from kernel.utils.logger import KernelLogger, get_logger
 from kernel.workflow.workflow_manager import WorkflowManager
 from kernel.policy import PolicyEngine
+from kernel.interfaces.executive import PolicyService
 
 
 class Bootstrap:
@@ -36,66 +44,40 @@ class Bootstrap:
     def __init__(self, root: str | Path = ".") -> None:
         self.root = Path(root).resolve()
 
-    def build(self, *, policy: PolicyEngine) -> ExecutiveEngine:
+    def create_policy(self) -> PolicyService:
+        """Create the default policy service for the composed Kernel."""
+        return PolicyEngine()
+
+    def build(self, *, policy: PolicyService | None = None) -> ExecutiveEngine:
+        """Construct the Kernel graph using only composition-root concretes."""
+        policy = policy if policy is not None else self.create_policy()
         config = ConfigManager()
+        KernelLogger.configure(log_directory=config.storage.root / "logs")
 
         logger = get_logger("Bootstrap")
         logger.info("Initializing JARVIS Kernel components")
 
         storage = StorageManager(config.storage.root)
 
-        if config.memory.backend == "sqlite":
-            memory_store = SQLiteMemoryStore(
-                config.storage.database
-            )
-        else:
-            raise ValueError(
-                f"Unsupported memory backend: {config.memory.backend}"
-            )
+        memory_store = storage.create_memory_store(
+            config.memory.backend,
+            config.storage.database,
+        )
 
         memory = MemoryManager(memory_store)
 
         models = ModelManager()
 
-        logger.info("Discovering installed Ollama models")
-
-        # Temporary provider used only for model discovery.
-        discovery_provider = OllamaProvider(
-            model=config.ollama.default_model,
-            base_url=config.ollama.base_url,
+        models.register(
+            OllamaProvider(
+                model=config.ollama.default_model,
+                base_url=config.ollama.base_url,
+            ),
+            default=True,
         )
 
-        try:
-            discovered_models = discovery_provider.available_models_sync()
-        except Exception as exc:
-            raise RuntimeError(
-                "Unable to discover installed Ollama models. "
-                "Ensure the Ollama server is running."
-            ) from exc
-
         logger.info(
-            "Discovered %d Ollama model(s)",
-            len(discovered_models),
-        )
-
-        if not discovered_models:
-            raise RuntimeError(
-                "No Ollama models were found. Install at least one model with 'ollama pull'."
-            )
-
-        for model_name in discovered_models:
-            models.register(
-                OllamaProvider(
-                    model=model_name,
-                    base_url=config.ollama.base_url,
-                )
-            )
-            logger.info("Registered model: %s", model_name)
-
-        models.select_default(config.ollama.default_model)
-
-        logger.info(
-            "Default model selected: %s",
+            "Default model configured: %s",
             config.ollama.default_model,
         )
 
@@ -148,17 +130,27 @@ class Bootstrap:
         if config.events.backend == "in_memory":
             events = InMemoryEventBus()
         else:
-            raise ValueError(
-                f"Unsupported event backend: {config.events.backend}"
-            )
+            raise ValueError(f"Unsupported event backend: {config.events.backend}")
 
-        observability = (
-            ObservabilityManager()
-            if config.observability.enabled
-            else None
-        )
+        observability = ObservabilityManager() if config.observability.enabled else None
 
         security = SecurityManager()
+
+        context_engine = ContextEngine()
+        intent_engine = IntentEngine()
+        reasoning_engine = ReasoningEngine()
+        decision_engine = DecisionEngine()
+        planning_engine = PlanningEngine()
+        execution_engine = ExecutionEngine(capabilities=adapters)
+
+        digital_twin = DigitalTwin()
+        recovery = RecoveryManager()
+
+        logger.info(
+            "Intelligence engines configured: context, intent, reasoning, "
+            "decision, planning, execution; optional integrations: "
+            "digital twin, recovery"
+        )
 
         engine = ExecutiveEngine(
             config=config,
@@ -171,6 +163,14 @@ class Bootstrap:
             observability=observability,
             security=security,
             policy=policy,
+            context_engine=context_engine,
+            intent_engine=intent_engine,
+            reasoning_engine=reasoning_engine,
+            decision_engine=decision_engine,
+            planning_engine=planning_engine,
+            execution_engine=execution_engine,
+            recovery=recovery,
+            digital_twin=digital_twin,
         )
 
         logger.info("Bootstrap completed successfully")

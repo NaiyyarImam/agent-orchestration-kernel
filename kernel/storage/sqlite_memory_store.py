@@ -157,9 +157,11 @@ class SQLiteMemoryStore(MemoryStore):
         self,
         query: str,
         *,
+        memory_type: str | None = None,
         limit: int = 10,
-    ) -> list[Any]:
-        return await self.search(query, limit=limit)
+    ) -> list[dict[str, Any]]:
+        values = await self.search(query, limit=limit)
+        return [{"value": value} for value in values]
 
     async def keys(self) -> list[str]:
         cursor = self._connection.cursor()

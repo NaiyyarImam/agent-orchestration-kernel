@@ -8,8 +8,7 @@ from typing import Any
 from kernel.core.bootstrap import Bootstrap
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.utils.logger import get_logger
-from kernel.policy import PolicyEngine
-from kernel.policy import PolicyRule
+from kernel.interfaces.executive import PolicyService
 
 
 class Kernel:
@@ -17,7 +16,7 @@ class Kernel:
 
     def __init__(self, root: str | Path = ".") -> None:
         self._bootstrap = Bootstrap(root)
-        self._policy = PolicyEngine()
+        self._policy = self._bootstrap.create_policy()
         self._engine: ExecutiveEngine | None = None
         self._started = False
         self._logger = get_logger("Kernel")
@@ -30,9 +29,8 @@ class Kernel:
 
         self._logger.info("Starting JARVIS Kernel")
         self._engine = self._bootstrap.build(policy=self._policy)
-        # Initialize all registered capability adapters.
-        for adapter in self._engine.adapters._adapters.values():
-            await adapter.initialize()
+        await self._engine.adapters.initialize_all()
+        await self._engine.events.publish("kernel.started", {})
         self._started = True
         self._logger.info("JARVIS Kernel started successfully")
 
@@ -45,11 +43,10 @@ class Kernel:
         self._logger.info("Shutting down JARVIS Kernel")
 
         if self._engine is not None:
-            memory_store = self._engine.memory.store
-
-            close = getattr(memory_store, "close", None)
-            if callable(close):
-                await close()
+            await self._engine.events.publish("kernel.stopping", {})
+            await self._engine.adapters.shutdown_all()
+            await self._engine.memory.close()
+            await self._engine.events.publish("kernel.stopped", {})
 
         self._engine = None
         self._started = False
@@ -67,11 +64,11 @@ class Kernel:
         return health
 
     @property
-    def policy(self) -> PolicyEngine:
+    def policy(self) -> PolicyService:
         """Return the Kernel Policy Engine."""
         return self._policy
 
-    def evaluate_policy(self, intent: str) -> PolicyRule:
+    def evaluate_policy(self, intent: str) -> Any:
         """Evaluate a policy decision for the supplied intent."""
         return self._policy.evaluate(intent)
 

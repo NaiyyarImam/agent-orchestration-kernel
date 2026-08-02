@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import pytest
 
@@ -437,12 +436,10 @@ class TestHealthCheck:
         assert storage.health_check() is True
 
     def test_health_check_returns_false_when_root_deleted(self, storage):
-        import shutil
         shutil.rmtree(storage.root)
         assert storage.health_check() is False
 
     def test_health_check_returns_false_when_root_missing(self, storage):
-        import shutil
         shutil.rmtree(storage.root)
         assert storage.health_check() is False
 
@@ -525,7 +522,7 @@ class TestEdgeCases:
     def test_move_file_into_existing_directory(self, storage):
         storage.ensure_directory("dir")
         storage.write_text("file.txt", "content")
-        dest = storage.move("file.txt", "dir")
+        storage.move("file.txt", "dir")
         # shutil.move returns the destination directory when moving into a directory
         moved_file = storage.root / "dir" / "file.txt"
         assert moved_file.exists()
@@ -535,7 +532,7 @@ class TestEdgeCases:
     def test_copy_file_into_existing_directory(self, storage):
         storage.ensure_directory("dir")
         storage.write_text("file.txt", "content")
-        dest = storage.copy("file.txt", "dir")
+        storage.copy("file.txt", "dir")
         copied_file = storage.root / "dir" / "file.txt"
         assert copied_file.exists()
         assert copied_file.read_text() == "content"
@@ -588,11 +585,6 @@ class TestInvalidInputs:
     def test_write_text_with_none_content_raises(self, storage):
         with pytest.raises(TypeError):
             storage.write_text("file.txt", None)
-
-    def test_write_json_with_non_serializable_raises(self, storage):
-        import datetime
-        with pytest.raises(TypeError):
-            storage.write_json("file.json", {"date": datetime.datetime.now()})
 
     def test_write_json_with_non_serializable_raises(self, storage):
         import datetime
@@ -658,6 +650,19 @@ class TestStorageManagerBackend:
         storage = StorageManager(tmp_path / "custom_storage")
         info = storage.backend_info()
         assert info["root"] == str((tmp_path / "custom_storage").resolve())
+
+    @pytest.mark.asyncio
+    async def test_storage_manager_owns_memory_store_creation(self, storage, tmp_path):
+        memory = storage.create_memory_store("sqlite", tmp_path / "memory.db")
+        try:
+            await memory.set("key", "value")
+            assert await memory.get("key") == "value"
+        finally:
+            await memory.close()
+
+    def test_unknown_memory_backend_raises(self, storage, tmp_path):
+        with pytest.raises(ValueError, match="Unsupported memory backend"):
+            storage.create_memory_store("unknown", tmp_path / "memory.db")
 
 
 # Fixtures

@@ -25,6 +25,7 @@ async def test_initialize_and_health_check():
 @pytest.mark.parametrize(
     "intent",
     [
+        "voice",
         "speech_to_text",
         "text_to_speech",
         "start_listening",
@@ -99,6 +100,17 @@ async def test_wake_word_execution():
     result = await adapter.execute(task)
     assert result.success is True
     assert result.data["message"] == "Wake word placeholder."
+
+
+@pytest.mark.asyncio
+async def test_voice_execution():
+    adapter = VoiceAdapter()
+    await adapter.initialize()
+    task = CapabilityTask(task_id="voice-6", intent="voice", payload={})
+    result = await adapter.execute(task)
+    assert result.success is True
+    assert result.data["intent"] == "voice"
+    assert result.data["message"] == "Voice placeholder executed successfully."
 
 
 @pytest.mark.asyncio

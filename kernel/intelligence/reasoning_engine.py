@@ -22,13 +22,22 @@ HIGH: Final[str] = "HIGH"
 FALLBACK_CAPABILITY: Final[str] = "chat"
 
 # Intent name -> (capability, priority, requires_confirmation).
+# The emitted capability name is the canonical name the execution layer
+# dispatches on, so it must be supported by a registered adapter
+# (checked via CapabilityAdapterManager.can_handle). Memory capabilities
+# therefore use the adapter-declared operation names (remember, recall,
+# search_memory, forget) rather than a collapsed "memory" capability.
 REASONING_RULES: Final[dict[str, tuple[str, str, bool]]] = {
     "chat": ("chat", LOW, False),
+    "search_memory": ("search_memory", LOW, False),
+    "remember": ("remember", LOW, False),
+    "recall": ("recall", LOW, False),
+    "forget": ("forget", LOW, False),
     "research": ("research", NORMAL, False),
     "code": ("coding", HIGH, False),
-    "memory": ("memory", LOW, False),
     "workspace": ("workspace", NORMAL, True),
     "browser": ("browser", NORMAL, False),
+    "voice": ("voice", LOW, False),
 }
 
 
@@ -47,6 +56,10 @@ class ReasoningEngine:
     def supports(self, intent_name: str) -> bool:
         """Return True if the intent name has a reasoning rule."""
         return intent_name in REASONING_RULES
+
+    async def health_check(self) -> bool:
+        """Return True while the engine is operational."""
+        return True
 
     def _reason_for(self, intent_name: str) -> Reasoning:
         capability, priority, requires_confirmation = REASONING_RULES.get(

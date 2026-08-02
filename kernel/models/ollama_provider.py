@@ -78,7 +78,7 @@ class OllamaProvider(ModelProvider):
 
         return data["choices"][0]["message"]["content"]
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, **kwargs: Any) -> list[float]:
         """Generate an embedding using the configured Ollama model."""
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
@@ -86,6 +86,7 @@ class OllamaProvider(ModelProvider):
                 json={
                     "model": self._model,
                     "input": text,
+                    **kwargs,
                 },
             )
             response.raise_for_status()

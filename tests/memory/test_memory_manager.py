@@ -1,9 +1,6 @@
 """Behavioural unit tests for :class:`kernel.memory.memory_manager.MemoryManager`.
 
-``MemoryManager`` currently uses a richer store API than the abstract
-``MemoryStore`` contract declares.  The backend below deliberately implements
-only the methods the manager actually calls; it is not presented as a
-``MemoryStore`` implementation.
+The backend below implements the complete API consumed by ``MemoryManager``.
 """
 
 from __future__ import annotations
@@ -59,6 +56,9 @@ class ManagerBackend:
 
     async def health_check(self) -> bool:
         return self.healthy
+
+    async def close(self) -> None:
+        return None
 
 
 @pytest.fixture
@@ -196,6 +196,17 @@ async def test_health_check_returns_backend_status(healthy: bool) -> None:
 
     assert await manager.health_check() is healthy
     backend.health_check.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_close_delegates_to_backend() -> None:
+    backend = ManagerBackend()
+    backend.close = AsyncMock()
+    manager = MemoryManager(backend)  # type: ignore[arg-type]
+
+    await manager.close()
+
+    backend.close.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

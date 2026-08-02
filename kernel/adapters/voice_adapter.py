@@ -37,6 +37,7 @@ class VoiceAdapter(CapabilityAdapter):
 
     def supports(self, intent: str) -> bool:
         return intent.lower() in {
+            "voice",
             "speech_to_text",
             "text_to_speech",
             "start_listening",
@@ -49,6 +50,7 @@ class VoiceAdapter(CapabilityAdapter):
             raise RuntimeError("VoiceAdapter has not been initialized.")
 
         messages = {
+            "voice": "Voice placeholder executed successfully.",
             "speech_to_text": "Speech-to-text placeholder.",
             "text_to_speech": "Text-to-speech placeholder.",
             "start_listening": "Start listening placeholder.",

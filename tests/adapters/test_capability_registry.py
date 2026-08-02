@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from kernel.adapters.capability_registry import InMemoryCapabilityRegistry
 from kernel.interfaces.capability_registry import CapabilityMetadata
 

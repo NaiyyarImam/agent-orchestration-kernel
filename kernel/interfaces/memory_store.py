@@ -31,6 +31,17 @@ class MemoryStore(ABC):
         """Store or update a value."""
 
     @abstractmethod
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        *,
+        memory_type: str = "general",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Compatibility alias for storing or updating a value."""
+
+    @abstractmethod
     async def delete(self, key: str) -> bool:
         """Delete a key. Return True if it existed."""
 
@@ -49,5 +60,26 @@ class MemoryStore(ABC):
         """Search memories matching a query."""
 
     @abstractmethod
+    async def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+    ) -> list[Any]:
+        """Search memories for the high-level memory API."""
+
+    @abstractmethod
+    async def keys(self) -> list[str]:
+        """Return all stored memory keys."""
+
+    @abstractmethod
     async def clear(self) -> None:
         """Remove all stored memories."""
+
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """Return whether the backend is operational."""
+
+    @abstractmethod
+    async def close(self) -> None:
+        """Release backend resources."""

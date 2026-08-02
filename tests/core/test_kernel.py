@@ -56,3 +56,22 @@ async def test_kernel_multiple_start_shutdown_cycles() -> None:
 
     await kernel.start()
     await kernel.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_kernel_policy_is_externally_provisioned() -> None:
+    """Design contract: policy provisioning is the application's
+    responsibility. A freshly built Kernel ships an empty policy engine
+    (default-deny) and exposes it through the public policy service so
+    the application can register rules before execution."""
+    kernel = Kernel()
+
+    await kernel.start()
+
+    try:
+        decision = kernel.evaluate_policy("research")
+
+        assert decision.allowed is False
+        assert kernel.policy is not None
+    finally:
+        await kernel.shutdown()

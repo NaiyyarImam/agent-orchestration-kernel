@@ -34,13 +34,14 @@ class ModelProvider(ABC):
         """Generate a text completion."""
 
     @abstractmethod
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, **kwargs: Any) -> list[float]:
         """Return an embedding vector for the supplied text."""
 
     @abstractmethod
     async def health_check(self) -> bool:
         """Return True if the provider is healthy and available."""
 
+    @property
     @abstractmethod
-    async def metadata(self) -> dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """Return provider capabilities and model metadata."""

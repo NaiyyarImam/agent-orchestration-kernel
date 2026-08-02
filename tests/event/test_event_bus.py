@@ -1,108 +1,64 @@
-
-
 from __future__ import annotations
 
-from kernel.events.event import Event
-from kernel.events.event_bus import EventBus
-from kernel.events.event_handler import EventHandler
+import pytest
+
+from kernel.events.event_bus import EventBus as LegacyEventBus
+from kernel.events.in_memory_event_bus import InMemoryEventBus
+from kernel.interfaces.event_bus import EventBus
 
 
-class DummyHandler(EventHandler):
-    def __init__(self, event_name: str = "kernel.started") -> None:
-        self._event_name = event_name
-        self.events: list[Event] = []
+@pytest.mark.asyncio
+async def test_in_memory_bus_implements_canonical_port() -> None:
+    bus: EventBus = InMemoryEventBus()
 
-    @property
-    def event_name(self) -> str:
-        return self._event_name
-
-    def handle(self, event: Event) -> None:
-        self.events.append(event)
+    assert await bus.subscribers("kernel.started") == []
 
 
-def test_event_bus_is_empty() -> None:
-    bus = EventBus()
-
-    assert bus.subscriptions_for("kernel.started") == ()
+def test_legacy_event_bus_import_remains_available() -> None:
+    assert isinstance(LegacyEventBus(), InMemoryEventBus)
 
 
-def test_subscribe_handler() -> None:
-    bus = EventBus()
-    handler = DummyHandler()
+@pytest.mark.asyncio
+async def test_publish_delivers_payload_to_sync_handler() -> None:
+    bus = InMemoryEventBus()
+    received: list[dict[str, object]] = []
 
-    subscription = bus.subscribe(handler)
+    def handler(payload: dict[str, object]) -> None:
+        received.append(payload)
 
-    assert subscription.handler is handler
-    assert len(bus.subscriptions_for("kernel.started")) == 1
+    await bus.subscribe("kernel.started", handler)
+    await bus.publish("kernel.started", {"source": "kernel"})
 
-
-def test_publish_to_single_handler() -> None:
-    bus = EventBus()
-    handler = DummyHandler()
-    bus.subscribe(handler)
-
-    event = Event(name="kernel.started")
-    bus.publish(event)
-
-    assert handler.events == [event]
+    assert received == [{"source": "kernel"}]
 
 
-def test_publish_to_multiple_handlers() -> None:
-    bus = EventBus()
-    handler1 = DummyHandler()
-    handler2 = DummyHandler()
+@pytest.mark.asyncio
+async def test_publish_delivers_payload_to_async_handler() -> None:
+    bus = InMemoryEventBus()
+    received: list[dict[str, object]] = []
 
-    bus.subscribe(handler1)
-    bus.subscribe(handler2)
+    async def handler(payload: dict[str, object]) -> None:
+        received.append(payload)
 
-    event = Event(name="kernel.started")
-    bus.publish(event)
+    await bus.subscribe("kernel.started", handler)
+    await bus.publish("kernel.started", {"version": "2.0"})
 
-    assert handler1.events == [event]
-    assert handler2.events == [event]
-
-def test_publish_by_name() -> None:
-    bus = EventBus()
-    handler = DummyHandler()
-    bus.subscribe(handler)
-
-    bus.publish_by_name(
-        "kernel.started",
-        source="kernel",
-        version="2.0",
-    )
-
-    assert len(handler.events) == 1
-
-    event = handler.events[0]
-    assert event.name == "kernel.started"
-    assert event.payload == {
-        "source": "kernel",
-        "version": "2.0",
-    }    
+    assert received == [{"version": "2.0"}]
 
 
-def test_unsubscribe_handler() -> None:
-    bus = EventBus()
-    handler = DummyHandler()
+@pytest.mark.asyncio
+async def test_unsubscribe_removes_handler() -> None:
+    bus = InMemoryEventBus()
 
-    bus.subscribe(handler)
+    def handler(payload: dict[str, object]) -> None:
+        pass
 
-    assert bus.unsubscribe(handler) is True
-    assert bus.subscriptions_for("kernel.started") == ()
+    await bus.subscribe("kernel.started", handler)
+    await bus.unsubscribe("kernel.started", handler)
 
-
-def test_unsubscribe_missing_handler() -> None:
-    bus = EventBus()
-
-    assert bus.unsubscribe(DummyHandler()) is False
+    assert await bus.subscribers("kernel.started") == []
 
 
-def test_clear_subscriptions() -> None:
-    bus = EventBus()
-    bus.subscribe(DummyHandler())
-    bus.subscribe(DummyHandler())
-
-    bus.clear()
-
-    assert bus.subscriptions_for("kernel.started") == ()
+@pytest.mark.asyncio
+async def test_health_check() -> None:
+    assert await InMemoryEventBus().health_check() is True

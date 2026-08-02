@@ -9,13 +9,13 @@ from kernel.interfaces.capability_adapter import (
     CapabilityResult,
     CapabilityTask,
 )
-from kernel.storage.storage_manager import StorageManager
+from kernel.interfaces.storage import Storage
 
 
 class WorkspaceAdapter(CapabilityAdapter):
     """Framework-independent workspace adapter."""
 
-    def __init__(self, storage: StorageManager | None = None) -> None:
+    def __init__(self, storage: Storage | None = None) -> None:
         self._storage = storage
         self._initialized = False
 
@@ -39,6 +39,7 @@ class WorkspaceAdapter(CapabilityAdapter):
 
     def supports(self, intent: str) -> bool:
         return intent.lower() in {
+            "workspace",
             "read_file",
             "write_file",
             "list_directory",
@@ -55,6 +56,7 @@ class WorkspaceAdapter(CapabilityAdapter):
             return await self._execute_read_file(task)
 
         messages = {
+            "workspace": "Workspace placeholder executed successfully.",
             "write_file": "Write file placeholder.",
             "list_directory": "List directory placeholder.",
             "create_directory": "Create directory placeholder.",

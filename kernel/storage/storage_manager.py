@@ -15,8 +15,12 @@ import json
 import os
 import shutil
 
+from kernel.interfaces.memory_store import MemoryStore
+from kernel.interfaces.storage import Storage
+from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
 
-class StorageManager:
+
+class StorageManager(Storage):
     """Manage Kernel storage locations and filesystem operations."""
 
     DEFAULT_BACKEND: Final[str] = "filesystem"
@@ -146,3 +150,9 @@ class StorageManager:
             "backend": self._backend,
             "root": str(self._root),
         }
+
+    def create_memory_store(self, backend: str, database: Path) -> MemoryStore:
+        """Create the configured memory backend owned by this storage boundary."""
+        if backend == "sqlite":
+            return SQLiteMemoryStore(database)
+        raise ValueError(f"Unsupported memory backend: {backend}")

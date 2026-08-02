@@ -36,9 +36,13 @@ class TestReasonAllIntents:
             "chat",
             "research",
             "code",
-            "memory",
+            "remember",
+            "recall",
+            "search_memory",
+            "forget",
             "workspace",
             "browser",
+            "voice",
         }
 
         assert set(REASONING_RULES) == expected
@@ -49,9 +53,13 @@ class TestReasonAllIntents:
             ("chat", "chat", LOW, False),
             ("research", "research", NORMAL, False),
             ("code", "coding", HIGH, False),
-            ("memory", "memory", LOW, False),
+            ("remember", "remember", LOW, False),
+            ("recall", "recall", LOW, False),
+            ("search_memory", "search_memory", LOW, False),
+            ("forget", "forget", LOW, False),
             ("workspace", "workspace", NORMAL, True),
             ("browser", "browser", NORMAL, False),
+            ("voice", "voice", LOW, False),
         ],
     )
     def test_each_intent_maps_to_expected_reasoning(
@@ -102,8 +110,11 @@ class TestReasonPriorityAssignment:
             engine.reason(Intent(name="workspace", confidence=0.9)).priority == NORMAL
         )
 
-    def test_memory_is_low_priority(self, engine: ReasoningEngine) -> None:
-        assert engine.reason(Intent(name="memory", confidence=0.9)).priority == LOW
+    def test_memory_operations_are_low_priority(self, engine: ReasoningEngine) -> None:
+        for intent_name in ("remember", "recall", "search_memory", "forget"):
+            assert (
+                engine.reason(Intent(name=intent_name, confidence=0.9)).priority == LOW
+            )
 
     def test_chat_is_low_priority(self, engine: ReasoningEngine) -> None:
         assert engine.reason(Intent(name="chat", confidence=0.9)).priority == LOW

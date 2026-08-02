@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from typing import Any
 
 
 from kernel.core.kernel import Kernel
-from kernel.config.config_manager import ConfigManager
-from kernel.utils.logger import KernelLogger, get_logger
+from kernel.utils.logger import get_logger
 
 
 BANNER = r"""
@@ -19,14 +19,33 @@ BANNER = r"""
 """
 
 
+def _status_label(status: Any) -> str:
+    """Return 'OK' or 'FAILED' for a health value.
+
+    Nested health dictionaries (for example model provider health)
+    are evaluated by their contained values, never by truthiness of
+    the dictionary itself.
+    """
+    if isinstance(status, dict):
+        if not status:
+            return "FAILED"
+        return "OK" if all(status.values()) else "FAILED"
+    return "OK" if status else "FAILED"
+
+
+def render_health(health: dict[str, Any]) -> list[str]:
+    """Render component health lines, expanding nested health dicts."""
+    lines: list[str] = []
+    for component, status in health.items():
+        lines.append(f"{component:<15}{_status_label(status)}")
+        if isinstance(status, dict):
+            for sub_component, sub_status in status.items():
+                lines.append(f"  {sub_component:<13}{_status_label(sub_status)}")
+    return lines
+
+
 async def main() -> None:
     """Start the JARVIS Kernel."""
-    config = ConfigManager()
-
-    KernelLogger.configure(
-        log_directory=config.storage.root / "logs"
-    )
-
     logger = get_logger("Main")
 
     print(BANNER)
@@ -44,11 +63,8 @@ async def main() -> None:
         logger.info("Kernel health check completed")
 
         print("\n========== COMPONENT HEALTH ==========")
-        for component, status in health.items():
-            print(
-                f"{component:<15}"
-                f"{'OK' if status else 'FAILED'}"
-            )
+        for line in render_health(health):
+            print(line)
 
         print("======================================")
         print("\n✓ JARVIS Kernel is ready.")

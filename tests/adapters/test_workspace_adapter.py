@@ -33,6 +33,7 @@ class TestAdapterContract:
 
     def test_supported_intents(self, adapter: WorkspaceAdapter) -> None:
         for intent in (
+            "workspace",
             "read_file",
             "write_file",
             "list_directory",
@@ -145,4 +146,13 @@ class TestPlaceholderIntents:
         )
         assert result.success is True
         assert result.data["message"] == "Move file placeholder."
+        assert result.metadata["status"] == "placeholder"
+
+    @pytest.mark.asyncio
+    async def test_workspace_placeholder(self, adapter: WorkspaceAdapter) -> None:
+        result = await self._execute(
+            adapter, "workspace", {"path": "."}, "Workspace placeholder executed successfully."
+        )
+        assert result.success is True
+        assert result.data["message"] == "Workspace placeholder executed successfully."
         assert result.metadata["status"] == "placeholder"

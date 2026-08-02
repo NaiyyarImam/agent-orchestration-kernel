@@ -24,9 +24,7 @@ class CapabilityAdapterManager:
         """Register a capability adapter."""
 
         if adapter.name in self._adapters:
-            raise ValueError(
-                f"Adapter '{adapter.name}' is already registered."
-            )
+            raise ValueError(f"Adapter '{adapter.name}' is already registered.")
 
         self._adapters[adapter.name] = adapter
 
@@ -41,14 +39,26 @@ class CapabilityAdapterManager:
         try:
             return self._adapters[adapter_name]
         except KeyError as exc:
-            raise KeyError(
-                f"Unknown adapter: {adapter_name}"
-            ) from exc
+            raise KeyError(f"Unknown adapter: {adapter_name}") from exc
 
     def exists(self, adapter_name: str) -> bool:
         """Return True if an adapter is registered."""
 
         return adapter_name in self._adapters
+
+    def can_handle(self, intent: str) -> bool:
+        """Return True if a registered adapter supports the intent.
+
+        Uses the same adapter resolution as execute(): an intent is
+        dispatchable only when find_adapter_for_intent() finds an
+        adapter whose supports() accepts it.
+        """
+
+        try:
+            self.find_adapter_for_intent(intent)
+            return True
+        except KeyError:
+            return False
 
     def list_adapters(self) -> list[str]:
         """Return registered adapter names."""
@@ -71,9 +81,7 @@ class CapabilityAdapterManager:
             if adapter.supports(intent):
                 return adapter
 
-        raise KeyError(
-            f"No adapter supports intent: {intent}"
-        )
+        raise KeyError(f"No adapter supports intent: {intent}")
 
     async def execute(
         self,

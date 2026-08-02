@@ -99,7 +99,8 @@ class PlanningEngine:
             },
         )
 
-    def validate(self, plan: Plan) -> bool:
+    @staticmethod
+    def validate(plan: Plan) -> bool:
         """Return True only when the plan is structurally valid."""
         if plan is None:
             return False

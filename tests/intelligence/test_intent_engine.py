@@ -55,14 +55,55 @@ class TestClassifyMatchedIntents:
         "text",
         [
             "remember this",
-            "recall what I stored",
-            "forget that memory",
+            "memorize my favorite color",
+            "store this for later",
         ],
     )
-    def test_memory_intent(self, engine: IntentEngine, text: str) -> None:
+    def test_remember_intent(self, engine: IntentEngine, text: str) -> None:
         intent = engine.classify(text)
 
-        assert intent.name == "memory"
+        assert intent.name == "remember"
+        assert intent.confidence == MATCHED_CONFIDENCE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "recall what I stored",
+            "recall my favorite color",
+        ],
+    )
+    def test_recall_intent(self, engine: IntentEngine, text: str) -> None:
+        intent = engine.classify(text)
+
+        assert intent.name == "recall"
+        assert intent.confidence == MATCHED_CONFIDENCE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "search my memory for notes",
+            "find my memory about the meeting",
+            "look through my memory for the password",
+        ],
+    )
+    def test_search_memory_intent(self, engine: IntentEngine, text: str) -> None:
+        intent = engine.classify(text)
+
+        assert intent.name == "search_memory"
+        assert intent.confidence == MATCHED_CONFIDENCE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "forget that memory",
+            "delete memory about my password",
+            "erase memory of the meeting",
+        ],
+    )
+    def test_forget_intent(self, engine: IntentEngine, text: str) -> None:
+        intent = engine.classify(text)
+
+        assert intent.name == "forget"
         assert intent.confidence == MATCHED_CONFIDENCE
 
     @pytest.mark.parametrize(
@@ -91,6 +132,22 @@ class TestClassifyMatchedIntents:
         intent = engine.classify(text)
 
         assert intent.name == "browser"
+        assert intent.confidence == MATCHED_CONFIDENCE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "use voice commands",
+            "speech to text",
+            "text to speech",
+            "start listening",
+            "transcribe this audio",
+        ],
+    )
+    def test_voice_intent(self, engine: IntentEngine, text: str) -> None:
+        intent = engine.classify(text)
+
+        assert intent.name == "voice"
         assert intent.confidence == MATCHED_CONFIDENCE
 
     def test_returns_intent_instance(self, engine: IntentEngine) -> None:
@@ -139,7 +196,7 @@ class TestClassifyCaseHandling:
     def test_keyword_in_uppercase_sentence(self, engine: IntentEngine) -> None:
         intent = engine.classify("Please REMEMBER this for me")
 
-        assert intent.name == "memory"
+        assert intent.name == "remember"
 
 
 class TestClassifyParameters:
