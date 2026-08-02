@@ -1,8 +1,9 @@
 """Intelligence Layer for the JARVIS Kernel.
 
-Exports the Context, Intent, Reasoning, Decision, and Plan models
-together with the deterministic ContextEngine, rule-based IntentEngine,
-ReasoningEngine, DecisionEngine, and PlanningEngine.
+Exports the Context, Intent, Reasoning, Decision, Plan, and Execution
+models together with the deterministic ContextEngine, rule-based
+IntentEngine, ReasoningEngine, DecisionEngine, PlanningEngine, and
+ExecutionEngine.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from kernel.intelligence.context import Context
 from kernel.intelligence.context_engine import ContextEngine
 from kernel.intelligence.decision import Decision
 from kernel.intelligence.decision_engine import DecisionEngine
+from kernel.intelligence.execution import Execution
+from kernel.intelligence.execution_engine import ExecutionEngine
 from kernel.intelligence.intent import Intent
 from kernel.intelligence.intent_engine import IntentEngine
 from kernel.intelligence.plan import Plan
@@ -29,4 +32,6 @@ __all__ = [
     "DecisionEngine",
     "Plan",
     "PlanningEngine",
+    "Execution",
+    "ExecutionEngine",
 ]
