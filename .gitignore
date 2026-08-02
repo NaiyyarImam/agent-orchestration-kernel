@@ -31,3 +31,4 @@ storage/*.db
 # IDE
 .vscode/
 .coverage
+.opencode/
