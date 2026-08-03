@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import pytest
@@ -18,8 +19,10 @@ from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.policy import PolicyEngine, PolicyRule
 from kernel.interfaces.capability_adapter import CapabilityResult, CapabilityTask
+from kernel.interfaces.research_backend import ResearchResult
 from kernel.memory.memory_manager import MemoryManager
 from kernel.storage.sqlite_memory_store import SQLiteMemoryStore
+from kernel.storage.storage_manager import StorageManager
 from kernel.security.security_manager import SecurityManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
@@ -45,10 +48,24 @@ from kernel.plugin.plugin_manager import PluginManager
 from kernel.recovery.recovery_manager import RecoveryManager
 
 
+class FakeResearchBackend:
+    """Deterministic in-memory ResearchBackend for tests."""
+
+    async def search(self, query: str, **kwargs: Any) -> list[ResearchResult]:
+        return [
+            ResearchResult(
+                title="JARVIS",
+                snippet=f"Result for {query}",
+                url="https://example.com/jarvis",
+                source="fake",
+            )
+        ]
+
+
 @pytest_asyncio.fixture
-async def executive_engine() -> ExecutiveEngine:
+async def executive_engine(tmp_path) -> ExecutiveEngine:
     adapters = CapabilityAdapterManager()
-    research = ResearchAdapter()
+    research = ResearchAdapter(FakeResearchBackend())
     await research.initialize()
     adapters.register(research)
 
@@ -60,7 +77,10 @@ async def executive_engine() -> ExecutiveEngine:
     await browser.initialize()
     adapters.register(browser)
 
-    workspace = WorkspaceAdapter()
+    store = SQLiteMemoryStore(":memory:")
+    memory = MemoryManager(store)
+
+    workspace = WorkspaceAdapter(StorageManager(tmp_path / "workspace"))
     await workspace.initialize()
     adapters.register(workspace)
 
@@ -68,14 +88,11 @@ async def executive_engine() -> ExecutiveEngine:
     await voice.initialize()
     adapters.register(voice)
 
-    memory_adapter = MemoryAdapter()
+    memory_adapter = MemoryAdapter(memory)
     await memory_adapter.initialize()
     adapters.register(memory_adapter)
 
     events = AsyncMock()
-
-    store = SQLiteMemoryStore(":memory:")
-    memory = MemoryManager(store)
 
     config = ConfigManager()
     models = ModelManager()
@@ -92,6 +109,11 @@ async def executive_engine() -> ExecutiveEngine:
             PolicyRule(intent="generate_code", allowed=True),
             PolicyRule(intent="web_search", allowed=True),
             PolicyRule(intent="read_file", allowed=True),
+            PolicyRule(intent="write_file", allowed=True),
+            PolicyRule(intent="move_file", allowed=True),
+            PolicyRule(intent="delete_file", allowed=True),
+            PolicyRule(intent="create_directory", allowed=True),
+            PolicyRule(intent="list_directory", allowed=True),
         ]
     )
 
@@ -163,15 +185,23 @@ async def test_execute_memory_capability(
 ) -> None:
     result = await executive_engine.execute_capability(
         "remember",
-        {"text": "Hello JARVIS"},
+        {"key": "greeting", "value": "Hello JARVIS"},
     )
 
     assert isinstance(result, CapabilityResult)
     assert result.success is True
     assert result.metadata["adapter"] == "memory"
+    assert result.metadata["status"] == "ok"
     assert result.data["intent"] == "remember"
-    assert result.data["payload"] == {"text": "Hello JARVIS"}
-    assert result.data["message"] == "Remember placeholder."
+    assert result.data["key"] == "greeting"
+
+    recalled = await executive_engine.execute_capability(
+        "recall",
+        {"key": "greeting"},
+    )
+
+    assert recalled.success is True
+    assert recalled.data["value"] == "Hello JARVIS"
 
 
 @pytest.mark.asyncio
@@ -221,6 +251,17 @@ async def test_execute_browser_capability(executive_engine: ExecutiveEngine) -> 
 async def test_execute_workspace_capability(
     executive_engine: ExecutiveEngine,
 ) -> None:
+    write = await executive_engine.execute_capability(
+        "write_file",
+        {"path": "README.md", "content": "JARVIS README"},
+    )
+
+    assert isinstance(write, CapabilityResult)
+    assert write.success is True
+    assert write.metadata["adapter"] == "workspace"
+    assert write.metadata["status"] == "ok"
+    assert write.data["intent"] == "write_file"
+
     result = await executive_engine.execute_capability(
         "read_file",
         {"path": "README.md"},
@@ -230,8 +271,7 @@ async def test_execute_workspace_capability(
     assert result.success is True
     assert result.metadata["adapter"] == "workspace"
     assert result.data["intent"] == "read_file"
-    assert result.data["payload"] == {"path": "README.md"}
-    assert result.data["message"] == "Read file placeholder."
+    assert result.data["content"] == "JARVIS README"
 
 
 @pytest.mark.asyncio
@@ -361,6 +401,112 @@ async def test_execute_request_remember_intent_dispatches_to_memory_adapter(
 
 
 @pytest.mark.asyncio
+async def test_execute_request_remember_pipeline_persists_real_memory(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    """The intelligence pipeline must persist a memory through the real
+    MemoryManager: Natural Language -> ExecutiveEngine -> ExecutionEngine ->
+    CapabilityAdapterManager -> MemoryAdapter -> MemoryManager -> MemoryStore."""
+    objective = "Remember my favorite color is blue"
+
+    results = await executive_engine.execute_request(objective)
+
+    assert results[0].success is True
+    assert results[0].data["status"] == "COMPLETED"
+    assert results[0].metadata["capability"] == "remember"
+    assert results[0].metadata["adapter"] == "memory"
+
+    searched = await executive_engine.execute_capability(
+        "search_memory", {"query": "favorite color"}
+    )
+    assert searched.success is True
+    assert objective in searched.data["results"]
+
+    derived_key = hashlib.sha256(objective.encode("utf-8")).hexdigest()[:16]
+
+    forgotten = await executive_engine.execute_capability(
+        "forget", {"key": derived_key}
+    )
+    assert forgotten.success is True
+
+    missing = await executive_engine.execute_capability("recall", {"key": derived_key})
+    assert missing.success is False
+    assert "Memory not found" in missing.error
+
+
+@pytest.mark.asyncio
+async def test_execute_request_memory_search_pipeline_reaches_store(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    """search_memory through the full ExecutiveEngine path must search the
+    real MemoryStore."""
+    await executive_engine.execute_capability(
+        "remember", {"key": "color", "value": "blue"}
+    )
+    await executive_engine.execute_capability(
+        "remember", {"key": "song", "value": "blue moon"}
+    )
+
+    results = await executive_engine.execute_request("Search my memory for blue")
+
+    assert results[0].success is True
+    assert results[0].data["status"] == "COMPLETED"
+    assert results[0].metadata["capability"] == "search_memory"
+    assert results[0].metadata["adapter"] == "memory"
+
+    searched = await executive_engine.execute_capability(
+        "search_memory", {"query": "blue"}
+    )
+    assert searched.success is True
+    assert len(searched.data["results"]) == 2
+    assert set(searched.data["results"]) == {"blue", "blue moon"}
+
+
+@pytest.mark.asyncio
+async def test_workspace_lifecycle_through_executive_engine(
+    executive_engine: ExecutiveEngine,
+) -> None:
+    """Every workspace operation executes through ExecutiveEngine ->
+    CapabilityAdapterManager -> WorkspaceAdapter -> StorageManager."""
+    written = await executive_engine.execute_capability(
+        "write_file", {"path": "notes.txt", "content": "content"}
+    )
+    assert written.success is True
+
+    listed = await executive_engine.execute_capability("list_directory", {})
+    assert listed.success is True
+    assert listed.data["entries"] == ["notes.txt"]
+
+    directory = await executive_engine.execute_capability(
+        "create_directory", {"path": "archive"}
+    )
+    assert directory.success is True
+
+    moved = await executive_engine.execute_capability(
+        "move_file",
+        {"source": "notes.txt", "destination": "archive/notes.txt"},
+    )
+    assert moved.success is True
+
+    read = await executive_engine.execute_capability(
+        "read_file", {"path": "archive/notes.txt"}
+    )
+    assert read.success is True
+    assert read.data["content"] == "content"
+
+    deleted = await executive_engine.execute_capability(
+        "delete_file", {"path": "archive/notes.txt"}
+    )
+    assert deleted.success is True
+
+    missing = await executive_engine.execute_capability(
+        "read_file", {"path": "archive/notes.txt"}
+    )
+    assert missing.success is False
+    assert "File not found" in missing.error
+
+
+@pytest.mark.asyncio
 async def test_execute_request_voice_intent_dispatches_to_voice_adapter(
     executive_engine: ExecutiveEngine,
 ) -> None:
@@ -368,9 +514,7 @@ async def test_execute_request_voice_intent_dispatches_to_voice_adapter(
     dispatch to the voice adapter through the capability boundary."""
     executive_engine.policy.register(PolicyRule(intent="voice", allowed=True))
 
-    results = await executive_engine.execute_request(
-        "transcribe this audio"
-    )
+    results = await executive_engine.execute_request("transcribe this audio")
 
     assert isinstance(results, list)
     assert len(results) == 1
@@ -1181,7 +1325,7 @@ async def test_execute_request_records_observability_started_and_completed() -> 
     observability = MagicMock()
 
     adapters = CapabilityAdapterManager()
-    adapters.register(ResearchAdapter())
+    adapters.register(ResearchAdapter(FakeResearchBackend()))
 
     store = SQLiteMemoryStore(":memory:")
     try:
@@ -1327,7 +1471,7 @@ async def test_execute_request_includes_real_digital_twin_snapshot() -> None:
     context_engine.build.return_value = MagicMock()
 
     adapters = CapabilityAdapterManager()
-    research = ResearchAdapter()
+    research = ResearchAdapter(FakeResearchBackend())
     await research.initialize()
     adapters.register(research)
 
@@ -1496,7 +1640,7 @@ async def test_execute_request_digital_twin_snapshot_survives_end_to_end() -> No
     digital_twin.update(EnvironmentSnapshot(cpu_usage=88.8))
 
     adapters = CapabilityAdapterManager()
-    research = ResearchAdapter()
+    research = ResearchAdapter(FakeResearchBackend())
     await research.initialize()
     adapters.register(research)
 
@@ -1539,7 +1683,7 @@ async def test_execute_request_working_memory_survives_end_to_end() -> None:
     """Regression: working memory must reach capability execution through
     the real pipeline."""
     adapters = CapabilityAdapterManager()
-    research = ResearchAdapter()
+    research = ResearchAdapter(FakeResearchBackend())
     await research.initialize()
     adapters.register(research)
 

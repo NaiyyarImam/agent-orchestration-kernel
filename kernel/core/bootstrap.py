@@ -115,7 +115,7 @@ class Bootstrap:
             "Registered capability adapter: %s",
             voice_adapter.name,
         )
-        memory_adapter = MemoryAdapter()
+        memory_adapter = MemoryAdapter(memory)
         adapters.register(memory_adapter)
         logger.info(
             "Registered capability adapter: %s",

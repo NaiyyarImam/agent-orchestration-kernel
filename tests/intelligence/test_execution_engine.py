@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.adapters.coding_adapter import CodingAdapter
 from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.interfaces.capability_adapter import CapabilityResult, CapabilityTask
+from kernel.interfaces.research_backend import ResearchResult
 from kernel.intelligence.context import Context
 from kernel.intelligence.execution import (
     CANCELLED,
@@ -76,11 +78,24 @@ def engine() -> ExecutionEngine:
     return ExecutionEngine()
 
 
+class FakeResearchBackend:
+    """Deterministic in-memory ResearchBackend for tests."""
+
+    async def search(self, query: str, **kwargs: Any) -> list[ResearchResult]:
+        return [
+            ResearchResult(
+                title="JARVIS",
+                snippet=f"Result for {query}",
+                source="fake",
+            )
+        ]
+
+
 @pytest_asyncio.fixture
 async def capability_engine() -> ExecutionEngine:
     """Provide an ExecutionEngine wired to a real CapabilityAdapterManager."""
     adapters = CapabilityAdapterManager()
-    research = ResearchAdapter()
+    research = ResearchAdapter(FakeResearchBackend())
     await research.initialize()
     adapters.register(research)
     return ExecutionEngine(capabilities=adapters)
@@ -249,14 +264,26 @@ class TestCapabilityExecution:
 
     @pytest.mark.asyncio
     async def test_execute_plan_without_context_preserves_empty_task_fields(
-        self, capability_engine: ExecutionEngine
+        self,
     ) -> None:
-        execution = await capability_engine.execute(make_plan(intent="research"))
+        """Without a Context, the dispatched CapabilityTask keeps empty
+        payload and context fields."""
+        captured: list[CapabilityTask] = []
+        adapters = MagicMock()
+        adapters.can_handle.return_value = True
+        adapters.execute = AsyncMock(
+            side_effect=lambda task: (
+                captured.append(task)
+                or CapabilityResult(success=True, data={"intent": task.intent})
+            )
+        )
 
-        payload = execution.metadata["capability_result"]["payload"]
-        task_context = execution.metadata["capability_result"]["context"]
-        assert payload == {}
-        assert task_context == {}
+        engine = ExecutionEngine(capabilities=adapters)
+        await engine.execute(make_plan(intent="research"))
+
+        task = captured[0]
+        assert task.payload == {}
+        assert task.context == {}
 
     @pytest.mark.asyncio
     async def test_execute_plan_does_not_mutate_context(
