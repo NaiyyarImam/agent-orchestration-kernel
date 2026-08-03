@@ -1,5 +1,3 @@
-
-
 """Shared pytest fixtures for the JARVIS Kernel test suite."""
 
 from __future__ import annotations
@@ -41,16 +39,3 @@ async def memory_store(temp_database: Path):
 def config_manager() -> ConfigManager:
     """Provide a ConfigManager instance."""
     return ConfigManager()
-
-
-@pytest.fixture
-def sample_ollama_tags() -> dict:
-    """Sample Ollama /api/tags response used by tests."""
-    return {
-        "models": [
-            {"name": "qwen3:14b"},
-            {"name": "mistral:latest"},
-            {"name": "ornith:9b"},
-            {"name": "qwythos:9b"},
-        ]
-    }
