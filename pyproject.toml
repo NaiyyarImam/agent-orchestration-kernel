@@ -1,0 +1,4 @@
+[project]
+name = "jarvis-kernel"
+version = "3.2.0"
+description = "Stable Kernel Architecture: orchestration, policy, execution, lifecycle, recovery, observability, context, and memory coordination."
