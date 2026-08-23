@@ -9,6 +9,7 @@ import pytest
 from kernel.adapters.capability_adapter_manager import CapabilityAdapterManager
 from kernel.adapters.research_adapter import ResearchAdapter
 from kernel.core.bootstrap import Bootstrap
+from kernel.events.event import Event
 from kernel.interfaces import ResearchBackend, ResearchResult
 from kernel.interfaces.capability_adapter import CapabilityTask
 from kernel.policy import PolicyEngine, PolicyRule
@@ -704,10 +705,11 @@ class TestResearchThroughExecutiveEngine:
                 "research",
                 {"query": "JARVIS"},
             )
-            assert result.success is False
-            assert "Research backend is not configured" in result.error
+            assert result.success is True
             assert result.metadata["adapter"] == "research"
-            assert result.metadata["status"] == "error"
+            assert result.metadata["status"] == "ok"
+            assert result.data["query"] == "JARVIS"
+            assert isinstance(result.data["results"], list)
         finally:
             await engine.memory.store.close()
 
@@ -741,22 +743,24 @@ class TestResearchThroughExecutiveEngine:
             await engine.memory.store.close()
 
     @pytest.mark.asyncio
-    async def test_research_pipeline_reports_unconfigured_backend(
+    async def test_research_pipeline_with_default_backend(
         self, tmp_path, monkeypatch
     ) -> None:
-        """The pipeline completes honestly when no backend is configured."""
+        """The pipeline works with the default LocalResearchBackend."""
         monkeypatch.setenv("JARVIS_STORAGE", str(tmp_path))
         engine = Bootstrap().build(policy=PolicyEngine(list(RESEARCH_POLICY_RULES)))
         try:
             await engine.adapters.initialize_all()
 
             results = await engine.execute_request("Research JARVIS")
-            assert results[0].success is False
-            assert results[0].data["status"] == "FAILED"
+            assert results[0].success is True
+            assert results[0].data["status"] == "COMPLETED"
             assert results[0].metadata["capability"] == "research"
             assert results[0].metadata["adapter"] == "research"
-            assert results[0].metadata["capability_result"] is None
-            assert "Execution failed" in results[0].error
+            capability_result = results[0].metadata["capability_result"]
+            assert capability_result is not None
+            assert capability_result["query"] == "Research JARVIS"
+            assert isinstance(capability_result["results"], list)
         finally:
             await engine.memory.store.close()
 
@@ -837,14 +841,14 @@ class TestResearchLifecycleIntegration:
             failed: list[dict[str, Any]] = []
             completed: list[dict[str, Any]] = []
 
-            async def on_started(payload: dict[str, Any]) -> None:
-                started.append(payload)
+            async def on_started(event: Event) -> None:
+                started.append(event.payload)
 
-            async def on_failed(payload: dict[str, Any]) -> None:
-                failed.append(payload)
+            async def on_failed(event: Event) -> None:
+                failed.append(event.payload)
 
-            async def on_completed(payload: dict[str, Any]) -> None:
-                completed.append(payload)
+            async def on_completed(event: Event) -> None:
+                completed.append(event.payload)
 
             await engine.events.subscribe("request.started", on_started)
             await engine.events.subscribe("request.failed", on_failed)
@@ -852,9 +856,12 @@ class TestResearchLifecycleIntegration:
 
             await engine.execute_request("Research JARVIS")
 
-            assert started == [{"objective": "Research JARVIS"}]
-            assert failed == [{"objective": "Research JARVIS", "success": False}]
-            assert completed == []
+            assert len(started) == 1
+            assert started[0]["objective"] == "Research JARVIS"
+            assert failed == []
+            assert len(completed) == 1
+            assert completed[0]["objective"] == "Research JARVIS"
+            assert completed[0]["success"] is True
         finally:
             await engine.memory.store.close()
 
@@ -876,11 +883,11 @@ class TestResearchLifecycleIntegration:
             failed: list[dict[str, Any]] = []
             completed: list[dict[str, Any]] = []
 
-            async def on_failed(payload: dict[str, Any]) -> None:
-                failed.append(payload)
+            async def on_failed(event: Event) -> None:
+                failed.append(event.payload)
 
-            async def on_completed(payload: dict[str, Any]) -> None:
-                completed.append(payload)
+            async def on_completed(event: Event) -> None:
+                completed.append(event.payload)
 
             await engine.events.subscribe("request.failed", on_failed)
             await engine.events.subscribe("request.completed", on_completed)
@@ -888,9 +895,9 @@ class TestResearchLifecycleIntegration:
             await engine.execute_request("Research JARVIS")
 
             assert failed == []
-            assert completed == [
-                {"objective": "Research JARVIS", "success": True}
-            ]
+            assert len(completed) == 1
+            assert completed[0]["objective"] == "Research JARVIS"
+            assert completed[0]["success"] is True
         finally:
             await engine.memory.store.close()
 
@@ -906,11 +913,11 @@ class TestResearchLifecycleIntegration:
             capability_started: list[dict[str, Any]] = []
             capability_completed: list[dict[str, Any]] = []
 
-            async def on_capability_started(payload: dict[str, Any]) -> None:
-                capability_started.append(payload)
+            async def on_capability_started(event: Event) -> None:
+                capability_started.append(event.payload)
 
-            async def on_capability_completed(payload: dict[str, Any]) -> None:
-                capability_completed.append(payload)
+            async def on_capability_completed(event: Event) -> None:
+                capability_completed.append(event.payload)
 
             await engine.events.subscribe(
                 "capability.execution.started", on_capability_started
@@ -921,10 +928,11 @@ class TestResearchLifecycleIntegration:
 
             await engine.execute_capability("research", {"query": "JARVIS"})
 
-            assert capability_started == [{"intent": "research"}]
-            assert capability_completed == [
-                {"intent": "research", "success": False}
-            ]
+            assert len(capability_started) == 1
+            assert capability_started[0]["intent"] == "research"
+            assert len(capability_completed) == 1
+            assert capability_completed[0]["intent"] == "research"
+            assert capability_completed[0]["success"] is True
         finally:
             await engine.memory.store.close()
 
@@ -969,8 +977,8 @@ class TestResearchLifecycleIntegration:
             snapshot = engine.observability.snapshot()
             metrics = snapshot["metrics"]
             assert metrics["requests.started"]["value"] == 1
-            assert metrics["requests.failed"]["value"] == 1
-            assert metrics.get("requests.completed", {}).get("value", 0) == 0
+            assert metrics["requests.completed"]["value"] == 1
+            assert metrics.get("requests.failed", {}).get("value", 0) == 0
         finally:
             await engine.memory.store.close()
 

@@ -14,10 +14,13 @@ from kernel.adapters.browser_adapter import BrowserAdapter
 from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
+from kernel.backends.local_research_backend import LocalResearchBackend
 from kernel.config.config_manager import ConfigManager
 from kernel.environment.digital_twin import DigitalTwin
 from kernel.events.in_memory_event_bus import InMemoryEventBus
+from kernel.events.nats_bridge import NatsBridge
 from kernel.executive.executive_engine import ExecutiveEngine
+from kernel.task.task_manager import InMemoryTaskManager
 from kernel.intelligence.context_engine import ContextEngine
 from kernel.intelligence.decision_engine import DecisionEngine
 from kernel.intelligence.execution_engine import ExecutionEngine
@@ -85,7 +88,8 @@ class Bootstrap:
 
         adapters = CapabilityAdapterManager()
 
-        research_adapter = ResearchAdapter()
+        research_backend = LocalResearchBackend(memory_store=memory_store)
+        research_adapter = ResearchAdapter(backend=research_backend)
         adapters.register(research_adapter)
         logger.info(
             "Registered capability adapter: %s",
@@ -132,6 +136,8 @@ class Bootstrap:
         else:
             raise ValueError(f"Unsupported event backend: {config.events.backend}")
 
+        nats_bridge = NatsBridge(events, config.nats) if config.nats.enabled else None
+
         observability = ObservabilityManager() if config.observability.enabled else None
 
         security = SecurityManager()
@@ -152,6 +158,8 @@ class Bootstrap:
             "digital twin, recovery"
         )
 
+        tasks = InMemoryTaskManager(events=events)
+
         engine = ExecutiveEngine(
             config=config,
             memory=memory,
@@ -160,6 +168,7 @@ class Bootstrap:
             adapters=adapters,
             workflows=workflows,
             events=events,
+            tasks=tasks,
             observability=observability,
             security=security,
             policy=policy,
@@ -171,6 +180,7 @@ class Bootstrap:
             execution_engine=execution_engine,
             recovery=recovery,
             digital_twin=digital_twin,
+            nats_bridge=nats_bridge,
         )
 
         logger.info("Bootstrap completed successfully")
