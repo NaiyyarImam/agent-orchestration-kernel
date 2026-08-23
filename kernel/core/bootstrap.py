@@ -15,6 +15,7 @@ from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
 from kernel.backends.local_research_backend import LocalResearchBackend
+from kernel.backends import PlaywrightBackend
 from kernel.config.config_manager import ConfigManager
 from kernel.environment.digital_twin import DigitalTwin
 from kernel.events.in_memory_event_bus import InMemoryEventBus
@@ -101,7 +102,8 @@ class Bootstrap:
             "Registered capability adapter: %s",
             coding_adapter.name,
         )
-        browser_adapter = BrowserAdapter()
+        browser_backend = PlaywrightBackend()
+        browser_adapter = BrowserAdapter(backend=browser_backend)
         adapters.register(browser_adapter)
         logger.info(
             "Registered capability adapter: %s",

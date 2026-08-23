@@ -16,8 +16,10 @@ from kernel.adapters.browser_adapter import BrowserAdapter
 from kernel.adapters.workspace_adapter import WorkspaceAdapter
 from kernel.adapters.voice_adapter import VoiceAdapter
 from kernel.adapters.memory_adapter import MemoryAdapter
+from kernel.events.event import Event
 from kernel.executive.executive_engine import ExecutiveEngine
 from kernel.policy import PolicyEngine, PolicyRule
+from kernel.interfaces.browser_backend import BrowserBackend, BrowserResult
 from kernel.interfaces.capability_adapter import CapabilityResult, CapabilityTask
 from kernel.interfaces.research_backend import ResearchResult
 from kernel.memory.memory_manager import MemoryManager
@@ -27,6 +29,46 @@ from kernel.security.security_manager import SecurityManager
 from kernel.tools.tool_registry import ToolRegistry
 from kernel.workflow.workflow_manager import WorkflowManager
 from kernel.config.config_manager import ConfigManager
+
+
+class FakeBrowserBackend:
+    """Fake browser backend for testing."""
+
+    def __init__(self) -> None:
+        self._initialized = False
+        self.calls: list[dict[str, Any]] = []
+
+    async def initialize(self) -> None:
+        self._initialized = True
+
+    async def shutdown(self) -> None:
+        self._initialized = False
+
+    async def health_check(self) -> bool:
+        return self._initialized
+
+    async def navigate(self, url: str, *, timeout: Optional[float] = None) -> BrowserResult:
+        self.calls.append({"method": "navigate", "url": url, "timeout": timeout})
+        return BrowserResult(success=True, url=url, title="Test Page", content="Test content")
+
+    async def search(self, query: str, *, limit: int = 10, timeout: Optional[float] = None) -> BrowserResult:
+        self.calls.append({"method": "search", "query": query, "limit": limit, "timeout": timeout})
+        return BrowserResult(
+            success=True,
+            url="https://www.bing.com/search?q=test",
+            title=f"Search results for: {query}",
+            content="Test results",
+            data={"results": [{"title": "Test", "url": "https://example.com", "snippet": "Test snippet"}]},
+        )
+
+    async def extract(self, selector: Optional[str] = None) -> BrowserResult:
+        self.calls.append({"method": "extract", "selector": selector})
+        return BrowserResult(success=True, url="https://example.com", title="Test Page", content="Extracted content")
+
+    async def screenshot(self, *, full_page: bool = False) -> BrowserResult:
+        self.calls.append({"method": "screenshot", "full_page": full_page})
+        return BrowserResult(success=True, data={"screenshot": b"fake", "full_page": full_page})
+from typing import Any, Optional
 from kernel.models.model_manager import ModelManager
 
 from kernel.intelligence.context_engine import ContextEngine
@@ -46,6 +88,15 @@ from kernel.environment.digital_twin import DigitalTwin
 from kernel.observability.observability_manager import ObservabilityManager
 from kernel.plugin.plugin_manager import PluginManager
 from kernel.recovery.recovery_manager import RecoveryManager
+
+
+def _assert_event_args(args: tuple, event_name: str, expected_payload: dict[str, Any]) -> None:
+    """Assert that publish was called with an Event matching the expected name and payload."""
+    assert len(args) == 1
+    event = args[0]
+    assert isinstance(event, Event)
+    assert event.name == event_name
+    assert event.payload == expected_payload
 
 
 class FakeResearchBackend:
@@ -73,7 +124,8 @@ async def executive_engine(tmp_path) -> ExecutiveEngine:
     await coding.initialize()
     adapters.register(coding)
 
-    browser = BrowserAdapter()
+    browser_backend = FakeBrowserBackend()
+    browser = BrowserAdapter(backend=browser_backend)
     await browser.initialize()
     adapters.register(browser)
 
@@ -244,7 +296,8 @@ async def test_execute_browser_capability(executive_engine: ExecutiveEngine) -> 
     assert result.metadata["adapter"] == "browser"
     assert result.data["intent"] == "web_search"
     assert result.data["payload"] == {"query": "JARVIS"}
-    assert result.data["message"] == "Web search placeholder."
+    assert result.data["url"] == "https://www.bing.com/search?q=test"
+    assert result.data["title"] == "Search results for: JARVIS"
 
 
 @pytest.mark.asyncio
@@ -940,13 +993,11 @@ async def test_execute_request_policy_denial_closes_request_lifecycle() -> None:
             await engine.execute_request("Denied")
 
         assert events.publish.await_count == 2
-        assert events.publish.await_args_list[0].args == (
-            "request.started",
-            {"objective": "Denied"},
+        _assert_event_args(
+            events.publish.await_args_list[0].args, "request.started", {"objective": "Denied"}
         )
-        assert events.publish.await_args_list[1].args == (
-            "request.failed",
-            {"objective": "Denied", "success": False},
+        _assert_event_args(
+            events.publish.await_args_list[1].args, "request.failed", {"objective": "Denied", "success": False}
         )
         observability.record_request_started.assert_called_once_with("Denied")
         observability.record_request_failed.assert_called_once_with("Denied")
@@ -994,13 +1045,11 @@ async def test_execute_request_authorization_denial_closes_request_lifecycle() -
             await engine.execute_request("Research JARVIS")
 
         assert events.publish.await_count == 2
-        assert events.publish.await_args_list[0].args == (
-            "request.started",
-            {"objective": "Research JARVIS"},
+        _assert_event_args(
+            events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
         )
-        assert events.publish.await_args_list[1].args == (
-            "request.failed",
-            {"objective": "Research JARVIS", "success": False},
+        _assert_event_args(
+            events.publish.await_args_list[1].args, "request.failed", {"objective": "Research JARVIS", "success": False}
         )
         observability.record_request_started.assert_called_once_with("Research JARVIS")
         observability.record_request_failed.assert_called_once_with("Research JARVIS")
@@ -1055,13 +1104,11 @@ async def test_execute_request_publishes_started_and_completed(
     await executive_engine.execute_request("Research JARVIS")
 
     assert executive_engine._events.publish.await_count == 2
-    assert executive_engine._events.publish.await_args_list[0].args == (
-        "request.started",
-        {"objective": "Research JARVIS"},
+    _assert_event_args(
+        executive_engine._events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
     )
-    assert executive_engine._events.publish.await_args_list[1].args == (
-        "request.completed",
-        {"objective": "Research JARVIS", "success": True},
+    _assert_event_args(
+        executive_engine._events.publish.await_args_list[1].args, "request.completed", {"objective": "Research JARVIS", "success": True}
     )
 
 
@@ -1079,13 +1126,11 @@ async def test_execute_request_publishes_failed_and_reraises(
 
     assert exc_info.value is execution_error
     assert executive_engine._events.publish.await_count == 2
-    assert executive_engine._events.publish.await_args_list[0].args == (
-        "request.started",
-        {"objective": "Research JARVIS"},
+    _assert_event_args(
+        executive_engine._events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
     )
-    assert executive_engine._events.publish.await_args_list[1].args == (
-        "request.failed",
-        {"objective": "Research JARVIS", "success": False},
+    _assert_event_args(
+        executive_engine._events.publish.await_args_list[1].args, "request.failed", {"objective": "Research JARVIS", "success": False}
     )
 
 
@@ -1154,13 +1199,11 @@ async def test_execute_request_failed_execution_uses_failed_lifecycle() -> None:
 
         assert results[0].success is False
         assert events.publish.await_count == 2
-        assert events.publish.await_args_list[0].args == (
-            "request.started",
-            {"objective": "Research JARVIS"},
+        _assert_event_args(
+            events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
         )
-        assert events.publish.await_args_list[1].args == (
-            "request.failed",
-            {"objective": "Research JARVIS", "success": False},
+        _assert_event_args(
+            events.publish.await_args_list[1].args, "request.failed", {"objective": "Research JARVIS", "success": False}
         )
         observability.record_request_started.assert_called_once_with("Research JARVIS")
         observability.record_request_failed.assert_called_once_with("Research JARVIS")
@@ -1208,9 +1251,8 @@ async def test_execute_request_pending_never_uses_completed_lifecycle() -> None:
         assert results[0].data["status"] == "PENDING"
         assert results[0].success is False
         assert events.publish.await_count == 1
-        assert events.publish.await_args_list[0].args == (
-            "request.started",
-            {"objective": "Research JARVIS"},
+        _assert_event_args(
+            events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
         )
         observability.record_request_started.assert_called_once_with("Research JARVIS")
         observability.record_request_completed.assert_not_called()
@@ -1255,11 +1297,13 @@ async def test_execute_request_pending_defer_never_publishes_completed() -> None
 
         assert results[0].data["status"] == "PENDING"
         assert events.publish.await_count == 1
-        assert events.publish.await_args_list[0].args == (
-            "request.started",
-            {"objective": "Research JARVIS"},
+        _assert_event_args(
+            events.publish.await_args_list[0].args, "request.started", {"objective": "Research JARVIS"}
         )
-        assert events.publish.await_args_list[0].args[0] != "request.completed"
+        # Verify it's not a completed event
+        event = events.publish.await_args_list[0].args[0]
+        assert isinstance(event, Event)
+        assert event.name != "request.completed"
     finally:
         await store.close()
 
